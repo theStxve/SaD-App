@@ -1,0 +1,24 @@
+# Android Build artifacts
+build/
+app/build/
+.gradle/
+Captures/
+**/build/
+
+# Local configuration
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Secrets & Keystores
+*.jks
+*.keystore
+google-services.json
+
+# Large Files (GitHub limit is 100MB)
+app/src/main/assets/places.db
+app/release/
+
+# Specialized files
+# test_db.py (allowed now)
