@@ -14,8 +14,8 @@
 - **🗝 Dungeon-System:** Entdecke "Common", "Rare" und "Epic" Dungeons basierend auf realen OpenStreetMap-Daten.
 - **🕸 P2P-Netzwerk (Gerüchte):** Triff andere Spieler in der echten Welt! Tausche automatisch verschlüsselte Gerüchte über Fundorte via Google Nearby (P2P) aus – ganz ohne zentralen Server.
 - **🏆 Achievement-Protokoll:** Sammle Erfolge für nächtliche Erkundungen, das Teilen deines Fortschritts oder das Hacken des Systems.
-- **🛜 Offline Modus** Zur Erstbestimmung der Position beim Start der App wird Internet empfohlen, abseits davon läuft die App ohne Netz.
-- **⬆️ Level System** Levelaufstiege mit dem Sammeln von XP und Freischalten von neuen Profiltiteln durchs Spielen!
+- **🛜 Offline Modus:** Zur Erstbestimmung der Position beim Start der App wird Internet empfohlen, abseits davon läuft die App ohne Netz.
+- **⬆️ Level System:** Levelaufstiege mit dem Sammeln von XP und Freischalten von neuen Profiltiteln durchs Spielen!
 
 ---
 
