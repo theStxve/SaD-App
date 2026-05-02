@@ -4,8 +4,8 @@ chcp 65001 >nul
 
 echo.
 echo  ╔══════════════════════════════════════════╗
-echo  ║        SAD DUNGEON FORGE                ║
-echo  ║   Datenbank aus OSM-Karte erstellen     ║
+echo  ║        SAD DUNGEON FORGE                 ║
+echo  ║   Datenbank aus OSM-Karte erstellen      ║
 echo  ╚══════════════════════════════════════════╝
 echo.
 
