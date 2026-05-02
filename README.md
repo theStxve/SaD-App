@@ -42,31 +42,39 @@ SAD ist ein Spiel für Entdecker. Dennoch gilt:
 
 ## 🗺 Map Data Pipeline (Dungeon-Schmiede)
 
-Wir behandeln die ganze Stadt als einen einzigen großen Dungeon. Um deine Region (z.B. Berlin, NRW) zu importieren, nutze die automatisierte Pipeline:
+Wir behandeln die ganze Stadt als einen einzigen großen Dungeon. Um deine Region zu importieren, nutze die automatisierte Pipeline im `scripts/`-Ordner.
 
-### 1. Vorbereitung
-1. Installiere [Osmium Tool](https://osmcode.org/osmium-tool/) (für Windows via `choco install osmium-tool` oder manuellem Download).
-2. Lade eine `.osm.pbf` Datei (z.B. dein Bundesland) von [Geofabrik](https://download.geofabrik.de/) herunter.
-3. Benenne die Datei in `map.osm.pbf` um und lege sie in den Projekt-Hauptordner.
+> **Voraussetzung:** [Python 3.9+](https://www.python.org/downloads/) muss installiert sein ("Add Python to PATH" beim Setup ankreuzen).
 
-### 2. Schmieden
-Führe einfach die Batch-Datei aus:
+### 1. Karte herunterladen
+Lade eine `.osm.pbf` Datei für deine Region (z.B. ein Bundesland) von [Geofabrik](https://download.geofabrik.de/europe/germany.html) herunter und lege sie als `map.osm.pbf` in den `scripts/`-Ordner.
+
+### 2. Schmieden (Windows)
+Doppelklick auf:
+```
+scripts/process_map.bat
+```
+Das Skript installiert alle Abhängigkeiten automatisch (`pip install osmium`) und erstellt die Datenbank.
+
+### 2. Schmieden (Linux / macOS)
 ```bash
-process_map.bat
+pip install osmium
+python scripts/process_map.py
 ```
 
 **Was passiert dabei?**
-- **Extraktion:** Alle Ruinen, Burgen, Bunker, aber auch Cafés und Museen werden als Sektoren extrahiert.
-- **Konvertierung:** Die Daten werden für die App aufbereitet.
-- **Datenbank:** Die `app/src/main/assets/places.db` wird automatisch erstellt/aktualisiert.
+- **Extraktion:** Ruinen, Burgen, Bunker, verlassene Orte, alte Bahnstrecken, Cafés, Museen v.v.m. werden aus der OSM-Karte gefiltert.
+- **Rarity-Zuweisung:** Jeder Ort bekommt automatisch eine Seltenheitsstufe (`uncommon` / `rare` / `epic`).
+- **Datenbank:** `app/src/main/assets/places.db` wird direkt erstellt – kein manueller Kopiervorgang nötig.
 
 ---
 
 ## 🏗 Installation & Setup
-1. Repository klonen.
-2. Dungeon-Schmiede ausführen (siehe oben).
-3. In Android Studio öffnen und auf das Gerät flashen.
 
+1. Repository klonen
+2. Kartendatei herunterladen (siehe oben) → `scripts/map.osm.pbf`
+3. `scripts/process_map.bat` ausführen (oder `python scripts/process_map.py`)
+4. Projekt in Android Studio öffnen und auf das Gerät flashen
 
 ---
 

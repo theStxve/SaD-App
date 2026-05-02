@@ -20,5 +20,8 @@ google-services.json
 app/src/main/assets/places.db
 app/release/
 
-# Specialized files
-# test_db.py (allowed now)
+# Kartendaten (werden lokal generiert, nicht ins Repo)
+scripts/*.osm.pbf
+scripts/*.osm
+scripts/*.geojson
+scripts/*.db
