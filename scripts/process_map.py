@@ -138,15 +138,19 @@ conn = sqlite3.connect(DB_FILE)
 c = conn.cursor()
 c.execute("""
     CREATE TABLE IF NOT EXISTS places (
-        osm_id   TEXT PRIMARY KEY,
-        name     TEXT,
-        category TEXT,
-        type     TEXT,
-        rarity   TEXT,
-        lat      REAL,
-        lon      REAL
+        osm_id   TEXT NOT NULL PRIMARY KEY,
+        name     TEXT NOT NULL,
+        category TEXT NOT NULL,
+        type     TEXT NOT NULL,
+        rarity   TEXT NOT NULL,
+        lat      REAL NOT NULL,
+        lon      REAL NOT NULL
     )
 """)
+# Indexes müssen exakt mit PlaceEntity @Index-Definitionen übereinstimmen
+c.execute("CREATE INDEX IF NOT EXISTS idx_coords   ON places(lat, lon)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_category ON places(category)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_rarity   ON places(rarity)")
 
 c.executemany("""
     INSERT OR IGNORE INTO places (osm_id, name, category, type, rarity, lat, lon)
