@@ -134,19 +134,26 @@ print(f"    → {len(features)} Dungeons gefunden")
 # ──────────────────────────────────────────────
 print("\n[2/2] Importiere in App-Datenbank...")
 os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
+if os.path.exists(DB_FILE):
+    os.remove(DB_FILE)
+
 conn = sqlite3.connect(DB_FILE)
 c = conn.cursor()
 c.execute("""
-    CREATE TABLE IF NOT EXISTS places (
-        osm_id   TEXT PRIMARY KEY,
-        name     TEXT,
-        category TEXT,
-        type     TEXT,
-        rarity   TEXT,
-        lat      REAL,
-        lon      REAL
+    CREATE TABLE places (
+        osm_id   TEXT NOT NULL PRIMARY KEY,
+        name     TEXT NOT NULL,
+        category TEXT NOT NULL,
+        type     TEXT NOT NULL,
+        rarity   TEXT NOT NULL,
+        lat      REAL NOT NULL,
+        lon      REAL NOT NULL
     )
 """)
+# Indexes müssen exakt mit PlaceEntity @Index-Definitionen übereinstimmen
+c.execute("CREATE INDEX IF NOT EXISTS idx_coords   ON places(lat, lon)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_category ON places(category)")
+c.execute("CREATE INDEX IF NOT EXISTS idx_rarity   ON places(rarity)")
 
 c.executemany("""
     INSERT OR IGNORE INTO places (osm_id, name, category, type, rarity, lat, lon)

@@ -78,14 +78,18 @@ fun MapScreen() {
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted -> hasLocationPermission = isGranted }
-    )
-
-    LaunchedEffect(Unit) {
-        if (!hasLocationPermission) {
-            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                hasLocationPermission = ActivityCompat.checkSelfPermission(
+                    context, Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -136,16 +140,16 @@ fun MapScreen() {
                         val newGeoPoint = GeoPoint(location.latitude + latOffset, location.longitude + lonOffset)
                         userLocation = newGeoPoint
 
-                        // POIs nachladen wenn wir uns weit genug bewegt haben
+                        // POIs nachladen – MIT Offset, damit Dev-Modus korrekt funktioniert
                         coroutineScope.launch {
                             val newPlaces = withContext(Dispatchers.IO) {
                                 val rawPlaces = db.placeDao().getPlacesInArea(
-                                    location.latitude - 0.015, location.latitude + 0.015,
-                                    location.longitude - 0.015, location.longitude + 0.015
+                                    newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
+                                    newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
                                 )
                                 rawPlaces.filter { place ->
                                     val results = FloatArray(1)
-                                    Location.distanceBetween(location.latitude, location.longitude, place.lat, place.lon, results)
+                                    Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
                                     results[0] <= 1000f
                                 }
                             }
@@ -326,7 +330,7 @@ fun MapScreen() {
         }
     } else {
         Box(modifier = Modifier.fillMaxSize().background(CyberpunkBackground), contentAlignment = Alignment.Center) {
-            Text("REQUIRE DEV MODE (GPS)", color = CyberpunkNeonPink)
+            Text("AWAITING GPS PERMISSION...", color = CyberpunkNeonPink)
         }
     }
 }
@@ -391,7 +395,12 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
     
     // Zoom flüssig updaten, ohne die Marker neu zu zeichnen
     LaunchedEffect(currentZoom) {
-        mapViewRef?.controller?.setZoom(currentZoom.toDouble())
+        mapViewRef?.let { map ->
+            map.controller.setZoom(currentZoom.toDouble())
+            if (followPlayer) {
+                map.controller.setCenter(center)
+            }
+        }
     }
     
     // Spieler-Position flüssig updaten, ohne Marker neu zu zeichnen
