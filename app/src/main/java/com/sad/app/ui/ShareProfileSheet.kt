@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.animation.core.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,15 +95,55 @@ fun ShareProfileSheet(
                             .heightIn(max = 240.dp)
                     )
                 }
-            } ?: Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(colors.bg),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = colors.primary)
+            } ?: run {
+                val infiniteTransition = rememberInfiniteTransition(label = "loading")
+                val offset by infiniteTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "bar_offset"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colors.bg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val barColor = colors.primary
+                        val trackColor = colors.primary.copy(alpha = 0.2f)
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth(0.5f)
+                                .height(4.dp)
+                        ) {
+                            // Hintergrund-Track
+                            drawRoundRect(
+                                color = trackColor,
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f)
+                            )
+                            // Animierter Balken (läuft von links nach rechts)
+                            val segmentWidth = size.width * 0.4f
+                            val startX = (size.width + segmentWidth) * offset - segmentWidth
+                            drawRoundRect(
+                                color = barColor,
+                                topLeft = androidx.compose.ui.geometry.Offset(startX.coerceIn(0f, size.width), 0f),
+                                size = androidx.compose.ui.geometry.Size(
+                                    width = (startX + segmentWidth).coerceIn(0f, size.width) - startX.coerceIn(0f, size.width),
+                                    height = size.height
+                                ),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f)
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text("Generiere Karte...", color = colors.textSecondary, fontSize = 12.sp)
+                    }
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -224,16 +265,18 @@ private fun shareProfileImage(context: Context, bitmap: Bitmap, profile: PlayerP
             file
         )
 
-        val shareText = "--- CITY AS A DUNGEON ---\n" +
-                "Agent: ${profile.displayName} [${profile.title}]\n" +
-                "Level: ${profile.level} | Erkundet: ${profile.exploredCount} Sektoren | Dungeons: ${profile.visitedDungeons}\n" +
-                "#CityAsADungeon #SAD"
-
+        // Nur Bild senden – kein Text, damit WhatsApp/Insta/Discord das Bild immer erkennen
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, contentUri)
-            putExtra(Intent.EXTRA_TEXT, shareText)
+            // ClipData ist für Android 12+ nötig damit die URI-Permission korrekt gesetzt wird
+            clipData = android.content.ClipData.newUri(
+                context.contentResolver,
+                "SAD Profilkarte",
+                contentUri
+            )
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         }
 
         context.startActivity(Intent.createChooser(shareIntent, "PROFILKARTE TEILEN"))

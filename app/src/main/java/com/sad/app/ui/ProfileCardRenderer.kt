@@ -19,48 +19,48 @@ enum class CardTheme(
 ) {
     CYBER(
         "Cyberpunk",
-        Color.parseColor("#0A0A12"),
-        Color.parseColor("#111122"),
+        Color.parseColor("#070A12"),
+        Color.parseColor("#0D1020"),
         Color.parseColor("#00F3FF"),
         Color.parseColor("#FF00E6"),
         Color.parseColor("#FFFFFF"),
-        Color.parseColor("#8899AA")
+        Color.parseColor("#7A8FA8")
     ),
     INFERNO(
         "Inferno",
-        Color.parseColor("#120600"),
-        Color.parseColor("#1E0C00"),
+        Color.parseColor("#0E0600"),
+        Color.parseColor("#1A0C00"),
         Color.parseColor("#FF6200"),
-        Color.parseColor("#FFCC00"),
+        Color.parseColor("#FFB300"),
         Color.parseColor("#FFFFFF"),
-        Color.parseColor("#AA7755")
+        Color.parseColor("#A07050")
     ),
     MATRIX(
         "Matrix",
         Color.parseColor("#000D00"),
-        Color.parseColor("#001A00"),
+        Color.parseColor("#001500"),
         Color.parseColor("#00FF41"),
         Color.parseColor("#88FF00"),
         Color.parseColor("#CCFFCC"),
-        Color.parseColor("#448844")
+        Color.parseColor("#3A7A3A")
     ),
     MIDNIGHT(
         "Midnight",
-        Color.parseColor("#0D1117"),
-        Color.parseColor("#161B22"),
-        Color.parseColor("#7952B3"),
+        Color.parseColor("#0A0D18"),
+        Color.parseColor("#131828"),
+        Color.parseColor("#8A6FDF"),
         Color.parseColor("#F78C6C"),
         Color.parseColor("#F0F6FC"),
-        Color.parseColor("#8B949E")
+        Color.parseColor("#6E7C9A")
     ),
     LIGHT(
         "Light",
-        Color.parseColor("#F0F4FF"),
+        Color.parseColor("#E8EEFF"),
         Color.parseColor("#FFFFFF"),
-        Color.parseColor("#0066DD"),
+        Color.parseColor("#1A5FCC"),
         Color.parseColor("#CC0066"),
-        Color.parseColor("#0D0D1A"),
-        Color.parseColor("#556080")
+        Color.parseColor("#0A0A1A"),
+        Color.parseColor("#445580")
     )
 }
 
@@ -78,363 +78,414 @@ object ProfileCardRenderer {
     }
 
     private fun drawIdCard(profile: PlayerProfile, theme: CardTheme): Bitmap {
-        val width = 1200
-        val height = 675
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        val W = 1400
+        val H = 700
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val M = 36f  // card margin
 
-        // Hintergründe
-        val bgPaint = Paint().apply { color = theme.bgColor; style = Paint.Style.FILL }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+        // ── Background ──────────────────────────────────────────────────────
+        c.drawColor(theme.bgColor)
 
-        // Karten-Container (Hauptkarte)
-        val cardMargin = 40f
-        val cardRect = RectF(cardMargin, cardMargin, width - cardMargin, height - cardMargin)
-        val cardPaint = Paint().apply { color = theme.surfaceColor; style = Paint.Style.FILL }
-        canvas.drawRoundRect(cardRect, 24f, 24f, cardPaint)
+        // Subtle diagonal grid texture
+        val gridP = Paint().apply { color = theme.primaryColor; alpha = 8; strokeWidth = 1f }
+        var gx = 0f
+        while (gx < W) { c.drawLine(gx, 0f, gx - H, H.toFloat(), gridP); gx += 60f }
 
-        val borderPaint = Paint().apply {
-            color = theme.primaryColor
-            style = Paint.Style.STROKE
-            strokeWidth = 3f
-            isAntiAlias = true
+        // Card surface
+        val cardRect = RectF(M, M, W - M, H - M)
+        val cardP = Paint().apply { color = theme.surfaceColor; style = Paint.Style.FILL; isAntiAlias = true }
+        c.drawRoundRect(cardRect, 20f, 20f, cardP)
+
+        // Card border with glow
+        val borderP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 2.5f; isAntiAlias = true
+            maskFilter = BlurMaskFilter(6f, BlurMaskFilter.Blur.OUTER)
         }
-        canvas.drawRoundRect(cardRect, 24f, 24f, borderPaint)
+        c.drawRoundRect(cardRect, 20f, 20f, borderP)
+        borderP.maskFilter = null; borderP.alpha = 120
+        c.drawRoundRect(cardRect, 20f, 20f, borderP)
 
-        // Subtiles Gitternetz-Hintergrundmuster
-        val gridPaint = Paint().apply {
-            color = theme.primaryColor
-            alpha = 15
-            strokeWidth = 1f
-        }
-        var x = cardMargin
-        while (x < width - cardMargin) {
-            canvas.drawLine(x, cardMargin, x, height - cardMargin, gridPaint)
-            x += 40f
-        }
-        var y = cardMargin
-        while (y < height - cardMargin) {
-            canvas.drawLine(cardMargin, y, width - cardMargin, y, gridPaint)
-            y += 40f
-        }
+        // Left accent bar
+        val accentBarP = Paint().apply { color = theme.primaryColor; alpha = 60 }
+        c.drawRoundRect(RectF(M, M, M + 5f, H - M), 4f, 4f, accentBarP)
 
-        // Header-Balken oben
-        val headerPaint = Paint().apply { color = theme.primaryColor; alpha = 30 }
-        canvas.drawRoundRect(RectF(cardMargin + 20f, cardMargin + 20f, width - cardMargin - 20f, cardMargin + 90f), 12f, 12f, headerPaint)
+        // ── Header strip ────────────────────────────────────────────────────
+        val headerH = 70f
+        val headerP = Paint().apply { color = theme.primaryColor; alpha = 18 }
+        c.drawRoundRect(RectF(M, M, W - M, M + headerH), 20f, 4f, headerP)
 
-        val titlePaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 28f
+        val headerBorderP = Paint().apply {
+            color = theme.primaryColor; alpha = 50
+            style = Paint.Style.STROKE; strokeWidth = 1f
+        }
+        c.drawLine(M + 20f, M + headerH, W - M - 20f, M + headerH, headerBorderP)
+
+        val headerTextP = Paint().apply {
+            color = theme.primaryColor; textSize = 22f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            isAntiAlias = true; letterSpacing = 0.15f
+        }
+        c.drawText("CITY AS A DUNGEON  //  OPERATIVE IDENTITY CARD", M + 30f, M + 44f, headerTextP)
+
+        // Version tag right side
+        headerTextP.textSize = 18f; headerTextP.alpha = 100
+        headerTextP.textAlign = Paint.Align.RIGHT
+        c.drawText("v1.0", W - M - 30f, M + 44f, headerTextP)
+        headerTextP.textAlign = Paint.Align.LEFT
+
+        // ── Avatar area (left column) ────────────────────────────────────────
+        val avatarCX = M + 160f
+        val avatarCY = M + headerH + ((H - M - headerH - M) / 2f)
+        val avatarR = 105f
+
+        // Outer glow ring
+        val glowP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 3f; isAntiAlias = true
+            maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.OUTER)
+        }
+        c.drawCircle(avatarCX, avatarCY, avatarR + 10f, glowP)
+
+        // Dashed orbit ring
+        val orbitP = Paint().apply {
+            color = theme.primaryColor; alpha = 60
+            style = Paint.Style.STROKE; strokeWidth = 1.5f
             isAntiAlias = true
+            pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
         }
-        canvas.drawText("CITY AS A DUNGEON // OPERATIVE ID", cardMargin + 40f, cardMargin + 62f, titlePaint)
+        c.drawCircle(avatarCX, avatarCY, avatarR + 20f, orbitP)
 
-        // Avatar-Kreis links
-        val avatarRadius = 100f
-        val avatarCenterX = cardMargin + 140f
-        val avatarCenterY = cardMargin + 260f
-
-        val avatarBgPaint = Paint().apply { color = theme.primaryColor; alpha = 40; isAntiAlias = true }
-        canvas.drawCircle(avatarCenterX, avatarCenterY, avatarRadius, avatarBgPaint)
-
-        val avatarBorderPaint = Paint().apply {
-            color = theme.primaryColor
-            style = Paint.Style.STROKE
-            strokeWidth = 4f
-            isAntiAlias = true
+        // Avatar circle fill
+        val avatarBgP = Paint().apply {
+            color = theme.primaryColor; alpha = 25; isAntiAlias = true
         }
-        canvas.drawCircle(avatarCenterX, avatarCenterY, avatarRadius, avatarBorderPaint)
+        c.drawCircle(avatarCX, avatarCY, avatarR, avatarBgP)
 
-        // Avatar-Initialen oder Symbol
-        val initials = if (profile.playerName.isNotBlank()) {
-            profile.playerName.take(2).uppercase()
-        } else {
-            "SAD"
+        // Avatar border
+        val avatarBorderP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 3f; isAntiAlias = true
         }
-        val initialsPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 64f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        c.drawCircle(avatarCX, avatarCY, avatarR, avatarBorderP)
+
+        // Initials
+        val initials = if (profile.playerName.isNotBlank()) profile.playerName.take(2).uppercase() else "SD"
+        val initialsP = Paint().apply {
+            color = theme.primaryColor; textSize = 72f
+            typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true
+            maskFilter = BlurMaskFilter(8f, BlurMaskFilter.Blur.OUTER)
         }
-        canvas.drawText(initials, avatarCenterX, avatarCenterY + 22f, initialsPaint)
+        c.drawText(initials, avatarCX, avatarCY + 25f, initialsP)
+        initialsP.maskFilter = null
+        c.drawText(initials, avatarCX, avatarCY + 25f, initialsP)
 
-        // Spieler Name + Titel rechts vom Avatar
-        val textLeft = avatarCenterX + avatarRadius + 50f
-        var textY = cardMargin + 210f
+        // ── Info column (right of avatar) ────────────────────────────────────
+        val infoLeft = avatarCX + avatarR + 60f
+        val infoRight = W - M - 40f
+        var infoY = M + headerH + 55f
 
-        val namePaint = Paint().apply {
-            color = theme.textColor
-            textSize = 48f
-            typeface = Typeface.DEFAULT_BOLD
-            isAntiAlias = true
+        // Player name
+        val nameP = Paint().apply {
+            color = theme.textColor; textSize = 64f
+            typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
         }
-        canvas.drawText(profile.displayName, textLeft, textY, namePaint)
+        c.drawText(profile.displayName, infoLeft, infoY, nameP)
+        infoY += 52f
 
-        textY += 45f
-        val rankPaint = Paint().apply {
-            color = theme.accentColor
-            textSize = 28f
-            typeface = Typeface.DEFAULT_BOLD
-            isAntiAlias = true
+        // Divider line under name
+        val divP = Paint().apply { color = theme.primaryColor; alpha = 40; strokeWidth = 1f }
+        c.drawLine(infoLeft, infoY, infoLeft + 380f, infoY, divP)
+        infoY += 22f
+
+        // Title row
+        val titleLblP = Paint().apply {
+            color = theme.subTextColor; textSize = 18f
+            typeface = Typeface.MONOSPACE; isAntiAlias = true; letterSpacing = 0.1f
         }
-        canvas.drawText("TITEL: ${profile.title.uppercase()}", textLeft, textY, rankPaint)
-
-        // Level Badge
-        val levelText = "LVL ${profile.level}"
-        val levelPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 28f
-            typeface = Typeface.DEFAULT_BOLD
-            isAntiAlias = true
+        c.drawText("TITEL", infoLeft, infoY, titleLblP)
+        val titleValP = Paint().apply {
+            color = theme.accentColor; textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true; letterSpacing = 0.05f
         }
-        canvas.drawText(levelText, textLeft, textY + 45f, levelPaint)
+        c.drawText(profile.title.uppercase(), infoLeft + 80f, infoY, titleValP)
+        infoY += 36f
 
-        // XP-Fortschrittsbalken
-        val barTop = cardMargin + 370f
-        val barLeft = cardMargin + 40f
-        val barRight = width - cardMargin - 40f
-        val barHeight = 16f
-
-        val barBgPaint = Paint().apply { color = theme.primaryColor; alpha = 30 }
-        canvas.drawRoundRect(RectF(barLeft, barTop, barRight, barTop + barHeight), 8f, 8f, barBgPaint)
-
-        val xpForThisLevel = (profile.level - 1) * 500
-        val xpProgress = ((profile.xp - xpForThisLevel).toFloat() / 500f).coerceIn(0f, 1f)
-        val barFillRight = barLeft + (barRight - barLeft) * xpProgress
-
-        val barFillPaint = Paint().apply { color = theme.primaryColor; isAntiAlias = true }
-        canvas.drawRoundRect(RectF(barLeft, barTop, barFillRight, barTop + barHeight), 8f, 8f, barFillPaint)
-
-        val xpLabelPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 22f
-            isAntiAlias = true
+        // Level row
+        c.drawText("LEVEL", infoLeft, infoY, titleLblP)
+        val levelValP = Paint().apply {
+            color = theme.primaryColor; textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true
         }
-        canvas.drawText("XP: ${profile.xp} / ${profile.level * 500}", barLeft, barTop - 12f, xpLabelPaint)
+        c.drawText("${profile.level}", infoLeft + 80f, infoY, levelValP)
+        infoY += 48f
 
-        // Stats Kacheln unten
-        val statY = cardMargin + 440f
-        val boxWidth = (width - cardMargin * 2 - 120f) / 3f
-        val boxHeight = 120f
+        // XP bar label
+        val xpForLevel = (profile.level - 1) * 500
+        val xpProgress = ((profile.xp - xpForLevel).toFloat() / 500f).coerceIn(0f, 1f)
+        val xpLblP = Paint().apply {
+            color = theme.subTextColor; textSize = 18f; typeface = Typeface.MONOSPACE; isAntiAlias = true
+        }
+        c.drawText("XP  ${profile.xp} / ${profile.level * 500}", infoLeft, infoY, xpLblP)
+        infoY += 16f
+
+        // XP bar track
+        val barW = (infoRight - infoLeft).coerceAtLeast(100f)
+        val barH2 = 10f
+        val barTrackP = Paint().apply { color = theme.primaryColor; alpha = 25; isAntiAlias = true }
+        c.drawRoundRect(RectF(infoLeft, infoY, infoLeft + barW, infoY + barH2), 6f, 6f, barTrackP)
+
+        // XP bar fill
+        val barFillP = Paint().apply { color = theme.primaryColor; isAntiAlias = true }
+        if (xpProgress > 0f) {
+            c.drawRoundRect(RectF(infoLeft, infoY, infoLeft + barW * xpProgress, infoY + barH2), 6f, 6f, barFillP)
+        }
+
+        // XP bar glow
+        barFillP.maskFilter = BlurMaskFilter(6f, BlurMaskFilter.Blur.OUTER)
+        if (xpProgress > 0f) {
+            c.drawRoundRect(RectF(infoLeft, infoY, infoLeft + barW * xpProgress, infoY + barH2), 6f, 6f, barFillP)
+        }
+
+        // ── Stats row at bottom ─────────────────────────────────────────────
+        val statsTop = H - M - 140f
+        val statsLeft = M + 30f
+        val statsRight = W - M - 30f
+        val statsW = (statsRight - statsLeft - 40f) / 3f
+
+        // Stats top separator
+        val sepP = Paint().apply { color = theme.primaryColor; alpha = 30; strokeWidth = 1f }
+        c.drawLine(statsLeft, statsTop - 10f, statsRight, statsTop - 10f, sepP)
 
         val stats = listOf(
-            "SEKTOREN" to "${profile.exploredCount}",
-            "DUNGEONS" to "${profile.visitedDungeons}",
-            "ACHIEVEMENTS" to "${profile.unlockedAchievements.size}"
+            Triple("SEKTOREN", "${profile.exploredCount}", theme.primaryColor),
+            Triple("DUNGEONS", "${profile.visitedDungeons}", theme.accentColor),
+            Triple("ACHIEVEMENTS", "${profile.unlockedAchievements.size}", theme.primaryColor)
         )
 
-        val boxBgPaint = Paint().apply { color = theme.primaryColor; alpha = 20 }
-        val boxBorderPaint = Paint().apply {
-            color = theme.primaryColor
-            alpha = 80
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-            isAntiAlias = true
-        }
-        val statValPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 42f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-        }
-        val statLblPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 20f
-            typeface = Typeface.MONOSPACE
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        val statValP2 = Paint().apply { textSize = 52f; typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true }
+        val statLblP2 = Paint().apply { color = theme.subTextColor; textSize = 18f; typeface = Typeface.MONOSPACE; textAlign = Paint.Align.CENTER; isAntiAlias = true; letterSpacing = 0.08f }
+
+        stats.forEachIndexed { i, (lbl, value, col) ->
+            val cx = statsLeft + i * (statsW + 20f) + statsW / 2f
+
+            // Stat box bg
+            val sbP = Paint().apply { color = theme.primaryColor; alpha = 12 }
+            c.drawRoundRect(RectF(cx - statsW / 2f, statsTop, cx + statsW / 2f, statsTop + 105f), 10f, 10f, sbP)
+
+            // Stat value
+            statValP2.color = col
+            c.drawText(value, cx, statsTop + 60f, statValP2)
+
+            // Stat label
+            c.drawText(lbl, cx, statsTop + 88f, statLblP2)
         }
 
-        stats.forEachIndexed { index, pair ->
-            val bLeft = barLeft + index * (boxWidth + 20f)
-            val bRect = RectF(bLeft, statY, bLeft + boxWidth, statY + boxHeight)
-            canvas.drawRoundRect(bRect, 12f, 12f, boxBgPaint)
-            canvas.drawRoundRect(bRect, 12f, 12f, boxBorderPaint)
-
-            canvas.drawText(pair.second, bLeft + boxWidth / 2f, statY + 55f, statValPaint)
-            canvas.drawText(pair.first, bLeft + boxWidth / 2f, statY + 95f, statLblPaint)
+        // ── Footer watermark ────────────────────────────────────────────────
+        val footP = Paint().apply {
+            color = theme.subTextColor; textSize = 18f; typeface = Typeface.MONOSPACE
+            textAlign = Paint.Align.RIGHT; isAntiAlias = true; alpha = 80
         }
+        c.drawText("SAD // CITY AS A DUNGEON OS", W - M - 20f, H - M - 12f, footP)
 
-        // Footer / Wasserzeichen
-        val footerPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 18f
-            typeface = Typeface.MONOSPACE
-            isAntiAlias = true
-        }
-        canvas.drawText("SAD // CITY AS A DUNGEON OS", width - cardMargin - 320f, height - cardMargin - 15f, footerPaint)
-
-        return bitmap
+        return bmp
     }
 
     private fun drawStatsPanel(profile: PlayerProfile, theme: CardTheme): Bitmap {
-        val width = 1080
-        val height = 1350
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        val W = 1080
+        val H = 1440
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val M = 40f
 
-        // Hintergründe
-        val bgPaint = Paint().apply { color = theme.bgColor; style = Paint.Style.FILL }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+        // ── Background ──────────────────────────────────────────────────────
+        c.drawColor(theme.bgColor)
 
-        // Hauptkarte (Rahmen)
-        val cardMargin = 40f
-        val cardRect = RectF(cardMargin, cardMargin, width - cardMargin, height - cardMargin)
-        val cardPaint = Paint().apply { color = theme.surfaceColor; style = Paint.Style.FILL }
-        canvas.drawRoundRect(cardRect, 28f, 28f, cardPaint)
+        // Diagonal grid
+        val gridP = Paint().apply { color = theme.primaryColor; alpha = 8; strokeWidth = 1f }
+        var gx = 0f
+        while (gx < W + H) { c.drawLine(gx, 0f, gx - H, H.toFloat(), gridP); gx += 60f }
 
-        val borderPaint = Paint().apply {
-            color = theme.primaryColor
-            style = Paint.Style.STROKE
-            strokeWidth = 3.5f
-            isAntiAlias = true
+        // Card surface
+        val cardRect = RectF(M, M, W - M, H - M)
+        val cardP = Paint().apply { color = theme.surfaceColor; style = Paint.Style.FILL; isAntiAlias = true }
+        c.drawRoundRect(cardRect, 24f, 24f, cardP)
+
+        // Card border with glow
+        val borderGlowP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 2f; isAntiAlias = true
+            maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.OUTER)
         }
-        canvas.drawRoundRect(cardRect, 28f, 28f, borderPaint)
+        c.drawRoundRect(cardRect, 24f, 24f, borderGlowP)
+        borderGlowP.maskFilter = null; borderGlowP.alpha = 100
+        c.drawRoundRect(cardRect, 24f, 24f, borderGlowP)
 
-        // Header Title
-        val headerPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 28f
+        // Top accent bar
+        val topAccentP = Paint().apply { color = theme.primaryColor; alpha = 50 }
+        c.drawRoundRect(RectF(M, M, W - M, M + 5f), 24f, 4f, topAccentP)
+
+        // ── Header ──────────────────────────────────────────────────────────
+        val headerH = 75f
+        val headerBgP = Paint().apply { color = theme.primaryColor; alpha = 15 }
+        c.drawRoundRect(RectF(M, M, W - M, M + headerH), 24f, 4f, headerBgP)
+
+        val headerDivP = Paint().apply { color = theme.primaryColor; alpha = 45; strokeWidth = 1f }
+        c.drawLine(M + 30f, M + headerH, W - M - 30f, M + headerH, headerDivP)
+
+        val headerTextP = Paint().apply {
+            color = theme.primaryColor; textSize = 22f
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            isAntiAlias = true
+            textAlign = Paint.Align.CENTER; isAntiAlias = true; letterSpacing = 0.2f
         }
-        canvas.drawText("CITY AS A DUNGEON // STATS", cardMargin + 40f, cardMargin + 70f, headerPaint)
+        c.drawText("CITY AS A DUNGEON  //  OPERATIVE PROFILE", W / 2f, M + 47f, headerTextP)
 
-        // Avatar-Kreis groß oben mittig
-        val avatarRadius = 110f
-        val avatarCenterX = width / 2f
-        val avatarCenterY = cardMargin + 230f
+        // ── Avatar ──────────────────────────────────────────────────────────
+        val avatarCX = W / 2f
+        val avatarCY = M + headerH + 145f
+        val avatarR = 115f
 
-        val avatarBgPaint = Paint().apply { color = theme.primaryColor; alpha = 40; isAntiAlias = true }
-        canvas.drawCircle(avatarCenterX, avatarCenterY, avatarRadius, avatarBgPaint)
-
-        val avatarBorderPaint = Paint().apply {
-            color = theme.primaryColor
-            style = Paint.Style.STROKE
-            strokeWidth = 5f
-            isAntiAlias = true
+        // Glow rings
+        val outerGlowP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 2f; isAntiAlias = true
+            maskFilter = BlurMaskFilter(25f, BlurMaskFilter.Blur.OUTER)
         }
-        canvas.drawCircle(avatarCenterX, avatarCenterY, avatarRadius, avatarBorderPaint)
+        c.drawCircle(avatarCX, avatarCY, avatarR + 15f, outerGlowP)
 
-        val initials = if (profile.playerName.isNotBlank()) profile.playerName.take(2).uppercase() else "SAD"
-        val initialsPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 72f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
+        val orbitP = Paint().apply {
+            color = theme.primaryColor; alpha = 50
+            style = Paint.Style.STROKE; strokeWidth = 1.5f
             isAntiAlias = true
+            pathEffect = DashPathEffect(floatArrayOf(14f, 10f), 0f)
         }
-        canvas.drawText(initials, avatarCenterX, avatarCenterY + 25f, initialsPaint)
+        c.drawCircle(avatarCX, avatarCY, avatarR + 28f, orbitP)
 
-        // Spieler Name & Titel
-        var y = avatarCenterY + avatarRadius + 60f
-        val namePaint = Paint().apply {
-            color = theme.textColor
-            textSize = 54f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        // Avatar fill
+        val avatarBgP = Paint().apply { color = theme.primaryColor; alpha = 22; isAntiAlias = true }
+        c.drawCircle(avatarCX, avatarCY, avatarR, avatarBgP)
+
+        val avatarBorderP = Paint().apply {
+            color = theme.primaryColor; style = Paint.Style.STROKE
+            strokeWidth = 3.5f; isAntiAlias = true
         }
-        canvas.drawText(profile.displayName, avatarCenterX, y, namePaint)
+        c.drawCircle(avatarCX, avatarCY, avatarR, avatarBorderP)
 
+        // Initials
+        val initials = if (profile.playerName.isNotBlank()) profile.playerName.take(2).uppercase() else "SD"
+        val initialsGlowP = Paint().apply {
+            color = theme.primaryColor; textSize = 84f
+            typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true
+            maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.OUTER)
+        }
+        c.drawText(initials, avatarCX, avatarCY + 29f, initialsGlowP)
+        initialsGlowP.maskFilter = null
+        c.drawText(initials, avatarCX, avatarCY + 29f, initialsGlowP)
+
+        // ── Name & Title ─────────────────────────────────────────────────────
+        var y = avatarCY + avatarR + 55f
+
+        val nameP = Paint().apply {
+            color = theme.textColor; textSize = 62f
+            typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true
+        }
+        c.drawText(profile.displayName, avatarCX, y, nameP)
         y += 50f
-        val rankPaint = Paint().apply {
-            color = theme.accentColor
-            textSize = 32f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+
+        // Horizontal rule under name
+        val hrP = Paint().apply { color = theme.primaryColor; alpha = 35; strokeWidth = 1f }
+        c.drawLine(M + 80f, y - 8f, W - M - 80f, y - 8f, hrP)
+
+        val titleP = Paint().apply {
+            color = theme.accentColor; textSize = 28f
+            typeface = Typeface.DEFAULT_BOLD; textAlign = Paint.Align.CENTER; isAntiAlias = true; letterSpacing = 0.08f
         }
-        canvas.drawText("LEVEL ${profile.level} · ${profile.title.uppercase()}", avatarCenterX, y, rankPaint)
-
-        // XP Balken
-        y += 60f
-        val barLeft = cardMargin + 60f
-        val barRight = width - cardMargin - 60f
-        val barHeight = 20f
-
-        val barBgPaint = Paint().apply { color = theme.primaryColor; alpha = 30 }
-        canvas.drawRoundRect(RectF(barLeft, y, barRight, y + barHeight), 10f, 10f, barBgPaint)
-
-        val xpForThisLevel = (profile.level - 1) * 500
-        val xpProgress = ((profile.xp - xpForThisLevel).toFloat() / 500f).coerceIn(0f, 1f)
-        val barFillRight = barLeft + (barRight - barLeft) * xpProgress
-
-        val barFillPaint = Paint().apply { color = theme.primaryColor; isAntiAlias = true }
-        canvas.drawRoundRect(RectF(barLeft, y, barFillRight, y + barHeight), 10f, 10f, barFillPaint)
-
-        val xpTextPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 22f
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
-        }
-        canvas.drawText("${profile.xp} / ${profile.level * 500} XP", avatarCenterX, y - 12f, xpTextPaint)
-
-        // Stats Kacheln (Grid 2x2)
+        c.drawText("${profile.title.uppercase()}  ·  LEVEL ${profile.level}", avatarCX, y + 20f, titleP)
         y += 80f
-        val gridMargin = cardMargin + 50f
-        val cellWidth = (width - gridMargin * 2 - 30f) / 2f
-        val cellHeight = 160f
+
+        // ── XP Bar ───────────────────────────────────────────────────────────
+        val xpForLevel = (profile.level - 1) * 500
+        val xpProgress = ((profile.xp - xpForLevel).toFloat() / 500f).coerceIn(0f, 1f)
+        val barLeft = M + 80f
+        val barRight = W - M - 80f
+
+        val xpLblP = Paint().apply {
+            color = theme.subTextColor; textSize = 20f
+            typeface = Typeface.MONOSPACE; textAlign = Paint.Align.CENTER; isAntiAlias = true
+        }
+        c.drawText("XP  ${profile.xp}  /  ${profile.level * 500}", avatarCX, y, xpLblP)
+        y += 18f
+
+        val barTrackP = Paint().apply { color = theme.primaryColor; alpha = 22; isAntiAlias = true }
+        c.drawRoundRect(RectF(barLeft, y, barRight, y + 12f), 6f, 6f, barTrackP)
+
+        if (xpProgress > 0f) {
+            val barFill = barLeft + (barRight - barLeft) * xpProgress
+            val barFillP = Paint().apply { color = theme.primaryColor; isAntiAlias = true }
+            c.drawRoundRect(RectF(barLeft, y, barFill, y + 12f), 6f, 6f, barFillP)
+            barFillP.maskFilter = BlurMaskFilter(5f, BlurMaskFilter.Blur.OUTER)
+            c.drawRoundRect(RectF(barLeft, y, barFill, y + 12f), 6f, 6f, barFillP)
+        }
+        y += 60f
+
+        // ── Stats 2x2 Grid ───────────────────────────────────────────────────
+        val divP2 = Paint().apply { color = theme.primaryColor; alpha = 28; strokeWidth = 1f }
+        c.drawLine(M + 60f, y - 10f, W - M - 60f, y - 10f, divP2)
+
+        val gridMargin = M + 55f
+        val cellW = (W - gridMargin * 2 - 30f) / 2f
+        val cellH = 160f
 
         val statsGrid = listOf(
-            "ERKUNDTE SEKTOREN" to "${profile.exploredCount}",
-            "BEZWUNGENE DUNGEONS" to "${profile.visitedDungeons}",
-            "NIGHT OWL EXPLO" to "${profile.nightExploredCount}",
-            "ERRUNGENSCHAFTEN" to "${profile.unlockedAchievements.size}"
+            Triple("ERKUNDETE\nSEKTOREN", "${profile.exploredCount}", theme.primaryColor),
+            Triple("BEZWUNGENE\nDUNGEONS", "${profile.visitedDungeons}", theme.accentColor),
+            Triple("NIGHT OWL\nEXPLO", "${profile.nightExploredCount}", theme.primaryColor),
+            Triple("FREI-\nGESCHALTET", "${profile.unlockedAchievements.size}", theme.accentColor)
         )
 
-        val cellBgPaint = Paint().apply { color = theme.primaryColor; alpha = 20 }
-        val cellBorderPaint = Paint().apply {
-            color = theme.primaryColor
-            alpha = 80
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-            isAntiAlias = true
+        val cellBgP = Paint().apply { color = theme.primaryColor; alpha = 15 }
+        val cellBorderP = Paint().apply {
+            color = theme.primaryColor; alpha = 60
+            style = Paint.Style.STROKE; strokeWidth = 1.5f; isAntiAlias = true
         }
-        val cellValPaint = Paint().apply {
-            color = theme.primaryColor
-            textSize = 52f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        val cellValP = Paint().apply {
+            textSize = 60f; typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER; isAntiAlias = true
         }
-        val cellLblPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 20f
-            typeface = Typeface.MONOSPACE
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        val cellLblP = Paint().apply {
+            color = theme.subTextColor; textSize = 18f
+            typeface = Typeface.MONOSPACE; textAlign = Paint.Align.CENTER
+            isAntiAlias = true; letterSpacing = 0.08f
         }
 
-        statsGrid.forEachIndexed { index, pair ->
-            val row = index / 2
-            val col = index % 2
-            val cLeft = gridMargin + col * (cellWidth + 30f)
-            val cTop = y + row * (cellHeight + 30f)
-            val cRect = RectF(cLeft, cTop, cLeft + cellWidth, cTop + cellHeight)
+        statsGrid.forEachIndexed { idx, (lbl, value, col) ->
+            val row = idx / 2; val col2 = idx % 2
+            val cLeft = gridMargin + col2 * (cellW + 30f)
+            val cTop = y + row * (cellH + 24f)
+            val cRect = RectF(cLeft, cTop, cLeft + cellW, cTop + cellH)
 
-            canvas.drawRoundRect(cRect, 16f, 16f, cellBgPaint)
-            canvas.drawRoundRect(cRect, 16f, 16f, cellBorderPaint)
+            c.drawRoundRect(cRect, 14f, 14f, cellBgP)
+            c.drawRoundRect(cRect, 14f, 14f, cellBorderP)
 
-            canvas.drawText(pair.second, cLeft + cellWidth / 2f, cTop + 75f, cellValPaint)
-            canvas.drawText(pair.first, cLeft + cellWidth / 2f, cTop + 125f, cellLblPaint)
+            cellValP.color = col
+            c.drawText(value, cLeft + cellW / 2f, cTop + 75f, cellValP)
+
+            // Multi-line label
+            val lines = lbl.split("\n")
+            lines.forEachIndexed { li, line ->
+                c.drawText(line, cLeft + cellW / 2f, cTop + 108f + li * 22f, cellLblP)
+            }
         }
 
-        // Footer / Brand
-        val footerPaint = Paint().apply {
-            color = theme.subTextColor
-            textSize = 22f
-            typeface = Typeface.MONOSPACE
-            textAlign = Paint.Align.CENTER
-            isAntiAlias = true
+        // ── Footer ───────────────────────────────────────────────────────────
+        val footP = Paint().apply {
+            color = theme.subTextColor; textSize = 20f
+            typeface = Typeface.MONOSPACE; textAlign = Paint.Align.CENTER
+            isAntiAlias = true; alpha = 80
         }
-        canvas.drawText("SAD // CITY AS A DUNGEON", avatarCenterX, height - cardMargin - 30f, footerPaint)
+        c.drawText("SAD // CITY AS A DUNGEON", W / 2f, H - M - 20f, footP)
 
-        return bitmap
+        return bmp
     }
 }
