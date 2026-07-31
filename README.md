@@ -106,9 +106,51 @@ python scripts/process_map.py
 ```
 
 **Was passiert dabei?**
-- **Extraktion:** Ruinen, Burgen, Bunker, verlassene Orte, alte Bahnstrecken, Cafés, Museen v.v.m. werden aus der OSM-Karte gefiltert.
+- **Extraktion:** Ruinen, Burgen, Bunker, verlassene Orte, alte Bahnstrecken, Cafés, Museen v.v.m. werden aus der OSM-Karte gefiltered.
 - **Rarity-Zuweisung:** Jeder Ort bekommt automatisch eine Seltenheitsstufe (`uncommon` / `rare` / `epic`).
 - **Datenbank:** `app/src/main/assets/places.db` wird direkt erstellt – kein manueller Kopiervorgang nötig.
+
+---
+
+## Eigene Addons (Dungeon-Packs) erstellen
+
+Du kannst für beliebige Städte, Bundesländer oder Länder eigene Dungeon-Packs erstellen und in deine App laden oder mit Freunden teilen.
+
+### 1. Voraussetzungen
+- [Python 3.9+](https://www.python.org/downloads/) auf dem PC installiert ("Add Python to PATH" beim Setup ankreuzen).
+
+### 2. Kartenmaterial herunterladen
+1. Gehe auf [Geofabrik Download Server](https://download.geofabrik.de/).
+2. Navigiere zu deiner Wunschregion (z.B. *Europe → Germany → Berlin* oder *Japan*).
+3. Lade die Datei mit der Endung `.osm.pbf` herunter (z.B. `berlin-latest.osm.pbf`).
+4. Speichere die Datei im `scripts/`-Ordner des Projekts.
+
+### 3. Addon-Datenbank schmieden
+
+#### Windows (Eingabeaufforderung / CMD)
+Öffne die Eingabeaufforderung im Projektordner und führe aus:
+```cmd
+scripts\process_map.bat scripts\berlin-latest.osm.pbf scripts\berlin_pack.db
+```
+
+#### Linux / macOS / Terminal
+```bash
+pip install osmium
+python scripts/process_map.py scripts/berlin-latest.osm.pbf scripts/berlin_pack.db
+```
+
+Das Skript erzeugt die fertige Addon-Datei `scripts/berlin_pack.db`.
+
+### 4. Auf das Smartphone übertragen
+Übertrage die erzeugte `.db`-Datei auf dein Smartphone (z.B. per USB-Kabel, Google Drive, Telegram oder Discord).
+
+### 5. In der App importieren
+1. Öffne **SAD** auf deinem Smartphone.
+2. Gehe in den **Optionen-Tab** (Zahnrad-Icon).
+3. Scrolle zum Bereich **ADDONS (DUNGEON-PACKS)**.
+4. Tippe auf **ADDON / DUNGEON-PACK IMPORTIEREN (.db)**.
+5. Wähle die übertragene `.db`-Datei aus und vergib einen Namen (z.B. *"Berlin Dungeons"*).
+6. Fertig! Die neuen Orte sind sofort auf deiner Karte aktiv.
 
 ---
 
