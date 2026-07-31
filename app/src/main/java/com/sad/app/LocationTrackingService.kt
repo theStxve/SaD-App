@@ -78,6 +78,8 @@ class LocationTrackingService : Service() {
         }
     }
 
+    private var lastProcessedLocation: Location? = null
+
     private suspend fun processLocation(location: Location, db: AppDatabase, gameDb: GameDatabase) {
         val prefs = getSharedPreferences("player_profile", Context.MODE_PRIVATE)
         val latOffset = prefs.getFloat("lat_offset", 0f)
@@ -86,11 +88,37 @@ class LocationTrackingService : Service() {
         val lat = location.latitude + latOffset
         val lon = location.longitude + lonOffset
 
+        // MapSettings laden
+        val mapPrefs = getSharedPreferences("map_customization_prefs", Context.MODE_PRIVATE)
+        val isConnectionMode = mapPrefs.getBoolean("connectionModeEnabled", false)
+        val isPrecisionMode = mapPrefs.getBoolean("precisionModeEnabled", false)
+        val stepMeters = if (isPrecisionMode) 20.0 else 150.0
+
         // 1. Fog of War im Hintergrund aufdecken!
         val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(lat, lon)
         if (alreadyExplored == 0) {
             gameDb.exploredAreaDao().insert(ExploredArea(lat = lat, lon = lon))
             PlayerProfile.incrementExplored(this@LocationTrackingService)
+
+            lastProcessedLocation?.let { lastLoc ->
+                if (isConnectionMode) {
+                    val lastLat = lastLoc.latitude + latOffset
+                    val lastLon = lastLoc.longitude + lonOffset
+                    val results = FloatArray(1)
+                    Location.distanceBetween(lastLat, lastLon, lat, lon, results)
+                    val dist = results[0].toDouble()
+                    if (dist > stepMeters) {
+                        val stepsCount = (dist / stepMeters).toInt()
+                        for (i in 1 until stepsCount) {
+                            val frac = i.toDouble() / stepsCount
+                            val iLat = lastLat + frac * (lat - lastLat)
+                            val iLon = lastLon + frac * (lon - lastLon)
+                            gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon))
+                        }
+                    }
+                }
+            }
+            lastProcessedLocation = location
         }
 
         // 2. Dungeons im Hintergrund automatisch looten/entdecken!

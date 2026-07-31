@@ -7,7 +7,7 @@ import org.osmdroid.views.overlay.Overlay
 
 /**
  * Fog of War Overlay:
- * - Verdeckt unerkundete Gebiete mit einem dunklen Schleier
+ * - Verdeckt unerkundete Gebiete mit einem Nebelschleier
  * - Erkundete Punkte werden sauber freigeschnitten
  * - Spieler-Standort erhält einen leuchtenden Neon-Rand
  */
@@ -16,7 +16,8 @@ class FogOfWarOverlay(
     var currentLocation: GeoPoint?,
     var themeColor: Int = Color.parseColor("#00F3FF"),
     var fogOpacity: Float = 0.85f,
-    private val visionRadiusMeters: Double = 150.0
+    var visionRadiusMeters: Double = 150.0,
+    var fogColor: Int = Color.parseColor("#0A0A14")
 ) : Overlay() {
 
     private val fogPaint = Paint().apply {
@@ -46,7 +47,12 @@ class FogOfWarOverlay(
 
         // 1. Nebel mit konfigurierbarer Opazität über gesamte Karte legen
         val alphaInt = (fogOpacity.coerceIn(0f, 1f) * 255).toInt()
-        fogPaint.color = Color.argb(alphaInt, 10, 10, 20)
+        fogPaint.color = Color.argb(
+            alphaInt,
+            Color.red(fogColor),
+            Color.green(fogColor),
+            Color.blue(fogColor)
+        )
         canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), fogPaint)
 
         // 2. Für jeden erkundeten Punkt ein Loch freischneiden
@@ -75,6 +81,6 @@ class FogOfWarOverlay(
         val northPoint = GeoPoint(center.latitude + offsetDeg, center.longitude)
         val northPixel = mapView.projection.toPixels(northPoint, null)
 
-        return Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(20f)
+        return Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(10f)
     }
 }

@@ -8,11 +8,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 data class MapSettings(
-    val contrast: Float = 1.2f,      // 0.5f .. 2.5f
-    val brightness: Float = 0f,      // -100f .. 100f
-    val isInverted: Boolean = true,  // Dark Mode Invert
-    val fogOpacity: Float = 0.85f    // 0.2f .. 1.0f
-)
+    val contrast: Float = 1.2f,             // 0.5f .. 2.5f
+    val brightness: Float = 0f,             // -100f .. 100f
+    val isInverted: Boolean = true,         // Dark Mode Invert
+    val fogOpacity: Float = 0.85f,           // 0.2f .. 1.0f
+    val precisionModeEnabled: Boolean = false, // 20m Radius (Präzisionsmode) vs 150m Standard
+    val connectionModeEnabled: Boolean = false, // Aufdecken der Verbindungslinie zwischen Punkten
+    val rememberedZoom: Float = 17f          // Gespeicherte Zoom-Stufe
+) {
+    val visionRadiusMeters: Double
+        get() = if (precisionModeEnabled) 20.0 else 150.0
+}
 
 object MapSettingsManager {
     private const val PREFS_KEY = "map_customization_prefs"
@@ -31,6 +37,9 @@ object MapSettingsManager {
             .putFloat("brightness", settings.brightness)
             .putBoolean("isInverted", settings.isInverted)
             .putFloat("fogOpacity", settings.fogOpacity)
+            .putBoolean("precisionModeEnabled", settings.precisionModeEnabled)
+            .putBoolean("connectionModeEnabled", settings.connectionModeEnabled)
+            .putFloat("rememberedZoom", settings.rememberedZoom)
             .apply()
         current = settings  // Reaktives Update → MapScreen sieht es sofort
     }
@@ -41,7 +50,10 @@ object MapSettingsManager {
             contrast = prefs.getFloat("contrast", 1.2f),
             brightness = prefs.getFloat("brightness", 0f),
             isInverted = prefs.getBoolean("isInverted", true),
-            fogOpacity = prefs.getFloat("fogOpacity", 0.85f)
+            fogOpacity = prefs.getFloat("fogOpacity", 0.85f),
+            precisionModeEnabled = prefs.getBoolean("precisionModeEnabled", false),
+            connectionModeEnabled = prefs.getBoolean("connectionModeEnabled", false),
+            rememberedZoom = prefs.getFloat("rememberedZoom", 17f)
         )
     }
 

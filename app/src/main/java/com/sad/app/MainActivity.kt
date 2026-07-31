@@ -105,8 +105,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SADApp() {
     val context = LocalContext.current
-    // Einmalig beim Start: gespeicherte Map-Settings in den reaktiven State laden
-    remember { MapSettingsManager.init(context); Unit }
+    // Einmalig beim Start: gespeicherte Map-Settings und Addons in den reaktiven State laden
+    remember { 
+        MapSettingsManager.init(context)
+        com.sad.app.data.AddonManager.init(context)
+        Unit 
+    }
     var currentTheme by remember { mutableStateOf(ThemeManager.load(context)) }
     val colors = currentTheme.colors
 
@@ -136,6 +140,17 @@ fun SADApp() {
                 context.startForegroundService(serviceIntent)
             } else {
                 context.startService(serviceIntent)
+            }
+        }
+    }
+
+    val gameDb = remember { com.sad.app.data.GameDatabase.getDatabase(context) }
+    val unreadRumorsCount by gameDb.rumorDao().unreadCount().collectAsState(initial = 0)
+
+    LaunchedEffect(selectedScreen) {
+        if (selectedScreen == Screen.Rumors) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                gameDb.rumorDao().markAllRead()
             }
         }
     }
@@ -178,7 +193,8 @@ fun SADApp() {
                             Screen.Settings -> colors.primary
                             else -> colors.primary
                         }
-                        NavItem(screen, isSelected, accentColor) { selectedScreen = screen }
+                        val showBadge = (screen == Screen.Rumors && unreadRumorsCount > 0)
+                        NavItem(screen, isSelected, accentColor, showBadge) { selectedScreen = screen }
                     }
                 }
             }
@@ -187,7 +203,7 @@ fun SADApp() {
 }
 
 @Composable
-fun NavItem(screen: Screen, isSelected: Boolean, selectedColor: Color, onClick: () -> Unit) {
+fun NavItem(screen: Screen, isSelected: Boolean, selectedColor: Color, showBadge: Boolean = false, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(72.dp)) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -206,6 +222,15 @@ fun NavItem(screen: Screen, isSelected: Boolean, selectedColor: Color, onClick: 
                     tint = if (isSelected) selectedColor else Color(0xFF445566),
                     modifier = Modifier.size(20.dp)
                 )
+                if (showBadge) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .align(Alignment.TopEnd)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(Color(0xFFFF00E6))
+                    )
+                }
             }
             Spacer(Modifier.height(2.dp))
             Text(

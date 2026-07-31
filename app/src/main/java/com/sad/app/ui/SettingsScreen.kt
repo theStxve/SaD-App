@@ -34,6 +34,19 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
 
     var selectedTheme by remember { mutableStateOf(ThemeManager.load(context)) }
     var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingAddonUri by remember { mutableStateOf<Uri?>(null) }
+    var addonNameInput by remember { mutableStateOf("") }
+    var showAddonDialog by remember { mutableStateOf(false) }
+
+    val addonPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            pendingAddonUri = it
+            addonNameInput = ""
+            showAddonDialog = true
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -277,6 +290,60 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                 )
             }
 
+            Spacer(Modifier.height(12.dp))
+
+            // Präzisionsmode Toggle (20m Radius statt 150m)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Präzisionsmodus", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Kleinere Erkundungskreise (20m) – spiegelt genau deinen Pfad wider", color = colors.textSecondary, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = mapSettings.precisionModeEnabled,
+                    onCheckedChange = { newVal ->
+                        val updated = mapSettings.copy(precisionModeEnabled = newVal)
+                        mapSettings = updated
+                        MapSettingsManager.save(context, updated)
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = colors.primary, checkedTrackColor = colors.primary.copy(alpha = 0.3f))
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Verbindungsmode Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Verbindungsmodus", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Deckt Pfad/Linie zwischen nacheinander gemessenen Punkten auf", color = colors.textSecondary, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = mapSettings.connectionModeEnabled,
+                    onCheckedChange = { newVal ->
+                        val updated = mapSettings.copy(connectionModeEnabled = newVal)
+                        mapSettings = updated
+                        MapSettingsManager.save(context, updated)
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = colors.accent, checkedTrackColor = colors.accent.copy(alpha = 0.3f))
+                )
+            }
+
             Spacer(Modifier.height(10.dp))
 
             // Reset Button
@@ -292,6 +359,80 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                 border = androidx.compose.foundation.BorderStroke(1.dp, colors.textSecondary.copy(alpha = 0.3f))
             ) {
                 Text("Standard-Kartenfilter zurücksetzen", color = colors.textSecondary, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Divider(color = colors.surfaceVariant)
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // ── Addons (Dungeon-Packs) ───────────────────────────────────────────
+        item {
+            val installedAddons = com.sad.app.data.AddonManager.installedAddons
+
+            Text(
+                "ADDONS (DUNGEON-PACKS)",
+                color = colors.textSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    addonPickerLauncher.launch(arrayOf("*/*"))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.2f)),
+                shape = RoundedCornerShape(8.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.5f))
+            ) {
+                Text("➕ ADDON / DUNGEON-PACK IMPORTIEREN (.db)", color = colors.primary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (installedAddons.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.surface)
+                        .padding(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Keine Addons installiert.\nImportiere eine places.db Datei aus deiner Region.", 
+                         color = colors.textSecondary, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    installedAddons.forEach { addon ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(colors.surface)
+                                .border(1.dp, colors.primary.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(addon.name, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("${addon.placeCount} Dungeons • Importiert", color = colors.textSecondary, fontSize = 11.sp)
+                            }
+                            IconButton(
+                                onClick = {
+                                    com.sad.app.data.AddonManager.removeAddon(context, addon.id)
+                                    Toast.makeText(context, "Addon '${addon.name}' entfernt", Toast.LENGTH_SHORT).show()
+                                }
+                            ) {
+                                Text("🗑", fontSize = 16.sp)
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -423,6 +564,72 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
             },
             dismissButton = {
                 TextButton(onClick = { pendingImportUri = null }) {
+                    Text("ABBRECHEN", color = colors.textSecondary)
+                }
+            }
+        )
+    }
+
+    // ── Addon Name Dialog ─────────────────────────────────────────────────────
+    if (showAddonDialog && pendingAddonUri != null) {
+        val targetUri = pendingAddonUri!!
+        AlertDialog(
+            onDismissRequest = {
+                showAddonDialog = false
+                pendingAddonUri = null
+            },
+            containerColor = colors.surface,
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Addon / Dungeon-Pack benennen", color = colors.textPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Gib diesem Pack einen Namen (z.B. 'Berlin Lost Places'):", color = colors.textSecondary, fontSize = 13.sp)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = addonNameInput,
+                        onValueChange = { addonNameInput = it },
+                        singleLine = true,
+                        placeholder = { Text("Addon Name", color = colors.textSecondary.copy(alpha = 0.5f)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.primary,
+                            unfocusedBorderColor = colors.surfaceVariant,
+                            focusedTextColor = colors.textPrimary,
+                            unfocusedTextColor = colors.textPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uriToProcess = targetUri
+                        val nameToUse = addonNameInput
+                        showAddonDialog = false
+                        pendingAddonUri = null
+                        coroutineScope.launch {
+                            val res = com.sad.app.data.AddonManager.importAddon(context, uriToProcess, nameToUse)
+                            if (res.isSuccess) {
+                                val addon = res.getOrNull()
+                                Toast.makeText(context, "Addon '${addon?.name}' mit ${addon?.placeCount} Dungeons importiert!", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Import-Fehler: ${res.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("IMPORTIEREN", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddonDialog = false
+                        pendingAddonUri = null
+                    }
+                ) {
                     Text("ABBRECHEN", color = colors.textSecondary)
                 }
             }

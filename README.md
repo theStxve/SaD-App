@@ -22,7 +22,7 @@
 
 ## Settings-Tab
 
-Ab Version 1.1.0 gibt es einen dedizierten Einstellungs-Tab in der Navigation.
+Ab Version 1.0.2 gibt es einen dedizierten Einstellungs-Tab in der Navigation.
 
 ### Farbschema
 Vier auswählbare App-Themes, die alle Screens und die Navigationsleiste einschließen:
@@ -36,13 +36,19 @@ Vier auswählbare App-Themes, die alle Screens und die Navigationsleiste einschl
 
 Das Light-Theme deaktiviert den Karten-Invertierungsfilter automatisch und zeigt normale helle OpenStreetMap-Kacheln.
 
-### Karten-Anpassung
+### Karten-Anpassung & Erkundung
 Die Kartenanzeige lässt sich unabhängig vom Theme konfigurieren:
 
+- **Präzisionsmodus** – Kleinere Erkundungskreise (20m) für exakte Pfade (Toggle)
+- **Verbindungsmodus** – Deckt die direkte Linie zwischen gemessenen GPS-Punkten auf (Toggle)
 - **Dark-Mode Invertierung** – Karte hell/dunkel umkehren (Toggle)
-- **Kontrast** – Stärke der Straßen- und Gebäudehervorhebung (0.5x – 2.5x)
-- **Helligkeit** – Gesamthelligkeit der Kartenkacheln (-100 bis +100)
+- **Kontrast & Helligkeit** – Stärke der Straßen- und Gebäudehervorhebung
 - **Nebel-Deckkraft** – Transparenz des Fog-of-War-Overlays (20% – 100%)
+
+### Addons (Dungeon-Packs)
+- Importiere eigene `.db`-Dateien aus anderen Städten/Regionen als Addon
+- Werden nahtlos in die Hauptkarte integriert und können einzeln verwaltet/gelöscht werden
+
 - **Reset** – Alle Kartenwerte auf Standard zurücksetzen
 
 Alle Werte werden persistent gespeichert und sofort auf die Karte angewendet, ohne Neustart.

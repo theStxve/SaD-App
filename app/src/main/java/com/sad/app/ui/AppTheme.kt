@@ -15,6 +15,7 @@ data class AppColors(
     val textPrimary: Color,
     val textSecondary: Color,
     val isDark: Boolean,    // Bestimmt Statusbar-Farbe und Karten-Filter
+    val fogColor: Color = Color(0xFF0A0A14)
 )
 
 // ─── Theme Enum ───────────────────────────────────────────────────────────────
@@ -30,6 +31,7 @@ enum class AppTheme(val displayName: String, val colors: AppColors) {
         textPrimary    = Color.White,
         textSecondary  = Color(0xFF8899AA),
         isDark         = true,
+        fogColor       = Color(0xFF0A0A14),
     )),
 
     LIGHT("Light", AppColors(
@@ -42,6 +44,7 @@ enum class AppTheme(val displayName: String, val colors: AppColors) {
         textPrimary    = Color(0xFF0D0D1A),
         textSecondary  = Color(0xFF556080),
         isDark         = false,
+        fogColor       = Color(0xFFD0D7E5),
     )),
 
     INFERNO("Inferno", AppColors(
@@ -54,6 +57,7 @@ enum class AppTheme(val displayName: String, val colors: AppColors) {
         textPrimary    = Color.White,
         textSecondary  = Color(0xFFAA7755),
         isDark         = true,
+        fogColor       = Color(0xFF120600),
     )),
 
     MATRIX("Matrix", AppColors(
@@ -66,6 +70,7 @@ enum class AppTheme(val displayName: String, val colors: AppColors) {
         textPrimary    = Color(0xFFCCFFCC),
         textSecondary  = Color(0xFF448844),
         isDark         = true,
+        fogColor       = Color(0xFF000D00),
     ));
 }
 

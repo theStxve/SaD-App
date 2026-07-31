@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -67,6 +68,7 @@ val CyberpunkNeonPink = androidx.compose.ui.graphics.Color(0xFFFF00E6)
 @Composable
 fun MapScreen() {
     val context = LocalContext.current
+    val colors = LocalAppColors.current
     val coroutineScope = rememberCoroutineScope()
     val db = remember { AppDatabase.getDatabase(context) }
     val gameDb = remember { GameDatabase.getDatabase(context) }
@@ -103,8 +105,8 @@ fun MapScreen() {
         var nearbyDungeon by remember { mutableStateOf<PlaceEntity?>(null) }
         var dungeonJustEntered by remember { mutableStateOf(false) }
         var dungeonAlreadyVisited by remember { mutableStateOf(false) }
-        // xKours-Style stufenloser Zoom: direktes Level (12.0 bis 20.0)
-        var currentZoom by remember { mutableStateOf(17f) }
+        // xKours-Style stufenloser Zoom: direktes Level (3.0 bis 22.0)
+        var currentZoom by remember { mutableStateOf(MapSettingsManager.current.rememberedZoom) }
         val rumors by gameDb.rumorDao().getAllFlow().collectAsState(initial = emptyList())
         val visitedDungeons by gameDb.visitedDungeonDao().getAllFlow().collectAsState(initial = emptyList())
         val visitedIds = remember(visitedDungeons) { visitedDungeons.map { it.osm_id }.toSet() }
@@ -148,11 +150,17 @@ fun MapScreen() {
                                     newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
                                     newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
                                 )
-                                rawPlaces.filter { place ->
+                                val mainFiltered = rawPlaces.filter { place ->
                                     val results = FloatArray(1)
                                     Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
                                     results[0] <= 1000f
                                 }
+                                val addonPlaces = com.sad.app.data.AddonManager.loadAllAddonPlaces(context).filter { place ->
+                                    val results = FloatArray(1)
+                                    Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
+                                    results[0] <= 1000f
+                                }
+                                mainFiltered + addonPlaces
                             }
                             places = newPlaces
                         }
@@ -173,15 +181,35 @@ fun MapScreen() {
         LaunchedEffect(userLocation) {
             userLocation?.let { loc ->
                 coroutineScope.launch(Dispatchers.IO) {
-                    // Nur speichern wenn dieser Punkt noch nicht erkundet wurde
                     val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(loc.latitude, loc.longitude)
                     if (alreadyExplored == 0) {
-                        gameDb.exploredAreaDao().insert(ExploredArea(lat = loc.latitude, lon = loc.longitude))
-                        // XP und Achievement-Counter erhoehen
-                        PlayerProfile.incrementExplored(context)
                         val newCenter = GeoPoint(loc.latitude, loc.longitude)
+                        val lastCenter = exploredCenters.lastOrNull()
+                        val isConnectionMode = MapSettingsManager.current.connectionModeEnabled
+                        
+                        gameDb.exploredAreaDao().insert(ExploredArea(lat = loc.latitude, lon = loc.longitude))
+                        PlayerProfile.incrementExplored(context)
+                        
+                        val addedPoints = mutableListOf<GeoPoint>()
+                        if (isConnectionMode && lastCenter != null) {
+                            val step = MapSettingsManager.current.visionRadiusMeters
+                            val results = FloatArray(1)
+                            Location.distanceBetween(lastCenter.latitude, lastCenter.longitude, newCenter.latitude, newCenter.longitude, results)
+                            val dist = results[0].toDouble()
+                            if (dist > step) {
+                                val stepsCount = (dist / step).toInt()
+                                for (i in 1 until stepsCount) {
+                                    val frac = i.toDouble() / stepsCount
+                                    val iLat = lastCenter.latitude + frac * (newCenter.latitude - lastCenter.latitude)
+                                    val iLon = lastCenter.longitude + frac * (newCenter.longitude - lastCenter.longitude)
+                                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon))
+                                    addedPoints.add(GeoPoint(iLat, iLon))
+                                }
+                            }
+                        }
+
                         withContext(Dispatchers.Main) {
-                            exploredCenters = exploredCenters + listOf(newCenter)
+                            exploredCenters = exploredCenters + addedPoints + listOf(newCenter)
                         }
                     }
                 }
@@ -226,8 +254,6 @@ fun MapScreen() {
                 }
             }
         }
-
-        val colors = LocalAppColors.current
 
         Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
             if (userLocation != null) {
@@ -281,7 +307,7 @@ fun MapScreen() {
                     }
                 }
 
-                // Dynamic Zoom Gesture Area - RIGHT SIDE (xKours-Style)
+                // Dynamic Zoom Gesture Area - RIGHT SIDE
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
@@ -290,50 +316,49 @@ fun MapScreen() {
                         .padding(end = 4.dp)
                         .pointerInput(Unit) {
                             detectVerticalDragGestures { _, dragAmount ->
-                                // Drag nach oben = negativer dragAmount -> + zoom
-                                // Faktor 150f macht es DEUTLICH weicher als 80f
                                 val zoomDelta = -dragAmount / 150f
-                                // "Infinite" Zoom-Boundaries (von Weltkarte bis maximal rein)
                                 currentZoom = (currentZoom + zoomDelta).coerceIn(3f, 22f)
                             }
                         }
                 ) {
-                    // Visual indicator bar (Infinite-Style, kein füllender Balken mehr)
+                    // Visual indicator bar
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .width(6.dp)
-                            .fillMaxHeight(0.5f),
-                        contentAlignment = Alignment.Center // Thumb sitzt im Leerlauf in der Mitte
+                            .fillMaxHeight(0.5f)
                     ) {
                         // Hintergrund-Linie (Glow)
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             shape = RoundedCornerShape(3.dp),
-                            color = CyberpunkNeonCyan.copy(alpha = 0.1f),
-                            border = androidx.compose.foundation.BorderStroke(0.5.dp, CyberpunkNeonCyan.copy(alpha = 0.3f))
+                            color = colors.primary.copy(alpha = 0.1f),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, colors.primary.copy(alpha = 0.3f))
                         ) {}
                         
-                        // Kleiner Thumb in der Mitte, der einfach anzeigt "Hier kann gewischt werden"
-                        // Füllt sich absichtlich nicht mehr, damit es sich endlos/infinite anfühlt!
+                        // Dynamische Pille: zoom 22f (ganz oben) -> Bias -1f, zoom 3f (ganz unten) -> Bias +1f
+                        val zoomFraction = ((currentZoom - 3f) / (22f - 3f)).coerceIn(0f, 1f)
+                        val verticalBias = 1f - (zoomFraction * 2f) // 1f (unten) bis -1f (oben)
+
                         Box(
                             modifier = Modifier
+                                .align(BiasAlignment(horizontalBias = 0f, verticalBias = verticalBias))
                                 .fillMaxWidth()
                                 .height(20.dp)
                                 .background(
-                                    color = CyberpunkNeonCyan,
+                                    color = colors.primary,
                                     shape = RoundedCornerShape(3.dp)
                                 )
                         )
                     }
                 }
             } else {
-                Text("INITIATING SCAN...", color = CyberpunkNeonCyan, modifier = Modifier.align(Alignment.Center))
+                Text("INITIATING SCAN...", color = colors.primary, modifier = Modifier.align(Alignment.Center))
             }
         }
     } else {
-        Box(modifier = Modifier.fillMaxSize().background(CyberpunkBackground), contentAlignment = Alignment.Center) {
-            Text("AWAITING GPS PERMISSION...", color = CyberpunkNeonPink)
+        Box(modifier = Modifier.fillMaxSize().background(colors.bg), contentAlignment = Alignment.Center) {
+            Text("AWAITING GPS PERMISSION...", color = colors.accent)
         }
     }
 }
@@ -443,13 +468,17 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
                     fog = FogOfWarOverlay(
                         exploredCenters, center,
                         themeColor = colors.primary.toArgb(),
-                        fogOpacity = MapSettingsManager.current.fogOpacity
+                        fogOpacity = MapSettingsManager.current.fogOpacity,
+                        visionRadiusMeters = MapSettingsManager.current.visionRadiusMeters,
+                        fogColor = colors.fogColor.toArgb()
                     )
                     mapView.overlays.add(0, fog)
                 } else {
                     fog.exploredAreas = exploredCenters
                     fog.themeColor = colors.primary.toArgb()
                     fog.fogOpacity = MapSettingsManager.current.fogOpacity
+                    fog.visionRadiusMeters = MapSettingsManager.current.visionRadiusMeters
+                    fog.fogColor = colors.fogColor.toArgb()
                 }
             }
             
@@ -492,9 +521,9 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
         }
     }
 
-    // Reaktiver Kartenfilter: update bei Theme-Wechsel ODER Slider-Änderung
+    // Reaktiver Kartenfilter & Nebel: update bei Theme-Wechsel ODER Slider/Setting-Änderung
     val mapSettings = MapSettingsManager.current
-    LaunchedEffect(colors.isDark, mapSettings) {
+    LaunchedEffect(colors.isDark, colors.fogColor, mapSettings) {
         mapViewRef?.let { map ->
             // Wenn Light-Theme aktiv UND Invertierung aus → kein Filter
             val effectiveSettings = if (!colors.isDark)
@@ -504,11 +533,21 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
             map.overlayManager.tilesOverlay.setColorFilter(
                 MapSettingsManager.buildColorFilter(effectiveSettings)
             )
-            // Nebel-Deckkraft live aktualisieren
+            // Nebel-Deckkraft, Radius & Farbe live aktualisieren
             (map.overlays.find { it is FogOfWarOverlay } as? FogOfWarOverlay)?.let {
                 it.fogOpacity = mapSettings.fogOpacity
+                it.visionRadiusMeters = mapSettings.visionRadiusMeters
+                it.fogColor = colors.fogColor.toArgb()
+                it.themeColor = colors.primary.toArgb()
             }
             map.invalidate()
+        }
+    }
+
+    // Zoom-Stufe merken bei Änderung
+    LaunchedEffect(currentZoom) {
+        if (currentZoom != mapSettings.rememberedZoom) {
+            MapSettingsManager.save(context, mapSettings.copy(rememberedZoom = currentZoom))
         }
     }
 

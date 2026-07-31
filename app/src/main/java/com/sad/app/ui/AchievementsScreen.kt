@@ -223,7 +223,7 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
                         Text("ACHIEVEMENTS", color = cyan, fontSize = 11.sp, letterSpacing = 4.sp)
                         Text(
                             text = "Errungenschaften",
-                            color = Color.White,
+                            color = colors.textPrimary,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Black,
                             modifier = Modifier.clickable(
@@ -281,8 +281,8 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Level ${profile.level} · ${profile.title}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("${profile.xp} / ${xpForNextLevel} XP", color = Color.Gray, fontSize = 12.sp)
+                        Text("Level ${profile.level} · ${profile.title}", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("${profile.xp} / ${xpForNextLevel} XP", color = colors.textSecondary, fontSize = 12.sp)
                     }
                     Spacer(Modifier.height(6.dp))
                     Box(
@@ -290,7 +290,7 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color(0xFF1A1A2E))
+                            .background(colors.surfaceVariant)
                     ) {
                         Box(
                             modifier = Modifier
@@ -320,7 +320,7 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
             containerColor = surface,
             shape = RoundedCornerShape(16.dp),
             title = { 
-                Text("Dev-Menü", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Dev-Menü", color = colors.textPrimary, fontWeight = FontWeight.Bold)
             },
             text = {
                 Column(
@@ -559,23 +559,25 @@ fun DevSwitch(label: String, checked: Boolean, color: Color, onCheckedChange: (B
 
 @Composable
 fun StatChip(value: String, label: String, color: Color, modifier: Modifier = Modifier) {
+    val colors = LocalAppColors.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF111122))
+            .background(colors.surface)
             .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
             .padding(12.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, color = color, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text(label, color = Color.Gray, fontSize = 11.sp)
+            Text(label, color = colors.textSecondary, fontSize = 11.sp)
         }
     }
 }
 
 @Composable
 fun AchievementCard(achievement: Achievement, isUnlocked: Boolean, surface: Color, gold: Color, cyan: Color) {
+    val colors = LocalAppColors.current
     val rarityColor = when (achievement.rarity) {
         "legendary" -> Color(0xFFFFD700)
         "epic"      -> Color(0xFFFF00E6)
@@ -584,7 +586,7 @@ fun AchievementCard(achievement: Achievement, isUnlocked: Boolean, surface: Colo
     }
 
     val alpha = if (isUnlocked) 1f else 0.35f
-    val borderColor = if (isUnlocked) rarityColor.copy(alpha = 0.7f) else Color(0xFF1A1A2E)
+    val borderColor = if (isUnlocked) rarityColor.copy(alpha = 0.7f) else colors.surfaceVariant
 
     Row(
         modifier = Modifier
@@ -600,7 +602,7 @@ fun AchievementCard(achievement: Achievement, isUnlocked: Boolean, surface: Colo
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(if (isUnlocked) rarityColor.copy(alpha = 0.15f) else Color(0xFF0D0D1A)),
+                .background(if (isUnlocked) rarityColor.copy(alpha = 0.15f) else colors.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -617,7 +619,7 @@ fun AchievementCard(achievement: Achievement, isUnlocked: Boolean, surface: Colo
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(achievement.title,
-                     color = if (isUnlocked) Color.White else Color.Gray,
+                     color = if (isUnlocked) colors.textPrimary else colors.textSecondary,
                      fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(Modifier.width(8.dp))
                 // Rarity Badge
@@ -633,7 +635,7 @@ fun AchievementCard(achievement: Achievement, isUnlocked: Boolean, surface: Colo
                 }
             }
             Text(achievement.description,
-                 color = if (isUnlocked) Color.Gray else Color(0xFF333355),
+                 color = if (isUnlocked) colors.textSecondary else colors.textSecondary.copy(alpha = 0.4f),
                  fontSize = 12.sp)
         }
 

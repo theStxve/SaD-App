@@ -2,20 +2,22 @@
 SAD DUNGEON FORGE – Karten-Prozessor
 =====================================
 Liest eine OpenStreetMap .pbf-Datei und schreibt alle
-gefundenen Dungeon-Orte direkt in die App-Datenbank.
+gefundenen Dungeon-Orte direkt in die App-Datenbank (oder Addon-Datei).
 
 Voraussetzung:
   pip install osmium
 
 Aufruf (aus dem SAD_App-Ordner):
   python scripts/process_map.py
+  
+Optionale Parameter:
+  python scripts/process_map.py /pfad/zur/datei.osm.pbf [ausgabe.db]
 
-  Die Datei 'map.osm.pbf' muss im gleichen Verzeichnis
-  wie dieses Skript liegen, ODER du gibst den Pfad an:
-  python scripts/process_map.py /pfad/zur/datei.osm.pbf
+Beispiel für ein eigenes Addon:
+  python scripts/process_map.py scripts/berlin.osm.pbf scripts/berlin_pack.db
 
 Karte herunterladen:
-  https://download.geofabrik.de/europe/germany/niedersachsen.html
+  https://download.geofabrik.de/europe/germany.html
 """
 
 import osmium
@@ -25,7 +27,19 @@ import sys
 
 # --- KONFIGURATION ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE    = os.path.join(SCRIPT_DIR, "..", "app", "src", "main", "assets", "places.db")
+
+# ──────────────────────────────────────────────
+# Eingabe- & Ausgabedatei bestimmen
+# ──────────────────────────────────────────────
+if len(sys.argv) > 1:
+    INPUT_PBF = sys.argv[1]
+else:
+    INPUT_PBF = os.path.join(SCRIPT_DIR, "map.osm.pbf")
+
+if len(sys.argv) > 2:
+    DB_FILE = os.path.abspath(sys.argv[2])
+else:
+    DB_FILE = os.path.join(SCRIPT_DIR, "..", "app", "src", "main", "assets", "places.db")
 
 # Filter: Welche OSM-Tags gelten als Dungeons?
 FILTER_TAGS = {
@@ -42,24 +56,19 @@ FILTER_TAGS = {
     "leisure":  ["nature_reserve"],
 }
 
-# ──────────────────────────────────────────────
 def matches_filter(tags: dict) -> bool:
     for key, values in FILTER_TAGS.items():
         if key in tags and tags[key] in values:
             return True
-    # Generisch: abandoned/disused=yes auf beliebigen Tags
     if tags.get("abandoned") == "yes" or tags.get("disused") == "yes":
         return True
     return False
 
-
 def get_rarity(tags: dict) -> str:
-    # Epic: Burgen, Festungen, Bunker, Militärgelände
     if (tags.get("historic") in ["castle", "fort", "bunker"]
             or tags.get("military") in ["bunker", "barracks", "training_area"]
             or tags.get("landuse") == "military"):
         return "epic"
-    # Rare: Ruinen, alte Schienen, verlassenes Zeug
     if (tags.get("historic") in ["ruins", "industrial", "railway_station"]
             or tags.get("ruins") == "yes"
             or tags.get("building") == "ruins"
@@ -69,14 +78,6 @@ def get_rarity(tags: dict) -> str:
             or tags.get("disused") == "yes"):
         return "rare"
     return "uncommon"
-
-# ──────────────────────────────────────────────
-# Eingabedatei bestimmen
-# ──────────────────────────────────────────────
-if len(sys.argv) > 1:
-    INPUT_PBF = sys.argv[1]
-else:
-    INPUT_PBF = os.path.join(SCRIPT_DIR, "map.osm.pbf")
 
 print("[SAD DUNGEON FORGE] Starte Extraktion...")
 print(f"Eingabe:   {INPUT_PBF}")
@@ -132,7 +133,7 @@ print(f"    → {len(features)} Dungeons gefunden")
 # ──────────────────────────────────────────────
 # SQLite importieren
 # ──────────────────────────────────────────────
-print("\n[2/2] Importiere in App-Datenbank...")
+print("\n[2/2] Importiere in Datenbank...")
 os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
 if os.path.exists(DB_FILE):
     os.remove(DB_FILE)
@@ -150,7 +151,6 @@ c.execute("""
         lon      REAL NOT NULL
     )
 """)
-# Indexes müssen exakt mit PlaceEntity @Index-Definitionen übereinstimmen
 c.execute("CREATE INDEX IF NOT EXISTS idx_coords   ON places(lat, lon)")
 c.execute("CREATE INDEX IF NOT EXISTS idx_category ON places(category)")
 c.execute("CREATE INDEX IF NOT EXISTS idx_rarity   ON places(rarity)")
@@ -166,4 +166,3 @@ conn.close()
 print()
 print(f"[FERTIG] {len(features)} Dungeons wurden in die Datenbank geschmiedet!")
 print(f"Datei: {os.path.normpath(DB_FILE)}")
-print("Rebuild die App in Android Studio.")
