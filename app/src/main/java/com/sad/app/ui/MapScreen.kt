@@ -119,6 +119,14 @@ fun MapScreen() {
 
         // 2. Initiales Laden entfernt: Warten jetzt auf echtes GPS-Signal
 
+        // Caching für Addon Places um wiederholtes IO-Lesen bei jedem GPS-Tick zu vermeiden
+        var cachedAddonPlaces by remember { mutableStateOf<List<PlaceEntity>>(emptyList()) }
+        LaunchedEffect(Unit) {
+            withContext(Dispatchers.IO) {
+                cachedAddonPlaces = com.sad.app.data.AddonManager.loadAllAddonPlaces(context)
+            }
+        }
+
         // 3. ECHTES kontinuierliches GPS-Tracking
         DisposableEffect(Unit) {
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
@@ -142,25 +150,24 @@ fun MapScreen() {
                         userLocation = newGeoPoint
 
                         // POIs nachladen – MIT Offset, damit Dev-Modus korrekt funktioniert
-                        coroutineScope.launch {
-                            val newPlaces = withContext(Dispatchers.IO) {
-                                val rawPlaces = db.placeDao().getPlacesInArea(
-                                    newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
-                                    newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
-                                )
-                                val mainFiltered = rawPlaces.filter { place ->
-                                    val results = FloatArray(1)
-                                    Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                                    results[0] <= 1000f
-                                }
-                                val addonPlaces = com.sad.app.data.AddonManager.loadAllAddonPlaces(context).filter { place ->
-                                    val results = FloatArray(1)
-                                    Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                                    results[0] <= 1000f
-                                }
-                                mainFiltered + addonPlaces
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val rawPlaces = db.placeDao().getPlacesInArea(
+                                newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
+                                newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
+                            )
+                            val results = FloatArray(1)
+                            val mainFiltered = rawPlaces.filter { place ->
+                                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
+                                results[0] <= 1000f
                             }
-                            places = newPlaces
+                            val addonFiltered = cachedAddonPlaces.filter { place ->
+                                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
+                                results[0] <= 1000f
+                            }
+                            val newPlaces = mainFiltered + addonFiltered
+                            withContext(Dispatchers.Main) {
+                                places = newPlaces
+                            }
                         }
                     }
                 }
@@ -210,7 +217,11 @@ fun MapScreen() {
 
                         val newExploredPoint = ExploredPoint(newCenter, radiusMeters = currentRadius)
                         withContext(Dispatchers.Main) {
-                            exploredCenters = exploredCenters + addedPoints + listOf(newExploredPoint)
+                            val updateList = ArrayList<ExploredPoint>(exploredCenters.size + addedPoints.size + 1)
+                            updateList.addAll(exploredCenters)
+                            updateList.addAll(addedPoints)
+                            updateList.add(newExploredPoint)
+                            exploredCenters = updateList
                         }
                     }
                 }
