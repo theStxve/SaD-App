@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,9 +28,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sad.app.notifications.DungeonNotifier
 import com.sad.app.ui.AchievementsScreen
+import com.sad.app.ui.AppTheme
+import com.sad.app.ui.LocalAppColors
 import com.sad.app.ui.MapScreen
 import com.sad.app.ui.QuestScreen
 import com.sad.app.ui.RumorsScreen
+import com.sad.app.ui.MapSettingsManager
+import com.sad.app.ui.SettingsScreen
+import com.sad.app.ui.ThemeManager
 import org.osmdroid.config.Configuration
 import android.preference.PreferenceManager
 import androidx.compose.ui.platform.LocalContext
@@ -38,6 +45,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     object Quests : Screen("quests", "Quests", Icons.Default.Star)
     object Rumors : Screen("rumors", "Gerüchte", Icons.Default.Forum)
     object Achievements : Screen("achievements", "Erfolge", Icons.Default.EmojiEvents)
+    object Settings : Screen("settings", "Optionen", Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
@@ -58,10 +66,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Statusleiste und Navigationsleiste unten an das dunkle Cyberpunk-Theme anpassen
-        window.statusBarColor = android.graphics.Color.parseColor("#0A0A12")
-        window.navigationBarColor = android.graphics.Color.parseColor("#0F0F1E")
 
         // Notification Channel einmalig erstellen
         DungeonNotifier.createChannel(this)
@@ -100,12 +104,25 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun SADApp() {
-    val bg = Color(0xFF0A0A12)
-    val cyan = Color(0xFF00F3FF)
-    val pink = Color(0xFFFF00E6)
-    val surface = Color(0xFF0F0F1E)
-
     val context = LocalContext.current
+    // Einmalig beim Start: gespeicherte Map-Settings in den reaktiven State laden
+    remember { MapSettingsManager.init(context); Unit }
+    var currentTheme by remember { mutableStateOf(ThemeManager.load(context)) }
+    val colors = currentTheme.colors
+
+    // Statusleiste und Navigationsleiste unten dynamisch an das Theme anpassen
+    val activity = (context as? ComponentActivity)
+    SideEffect {
+        activity?.window?.apply {
+            statusBarColor = android.graphics.Color.parseColor(
+                String.format("#%06X", (0xFFFFFF and colors.bg.toArgb()))
+            )
+            navigationBarColor = android.graphics.Color.parseColor(
+                String.format("#%06X", (0xFFFFFF and colors.surface.toArgb()))
+            )
+        }
+    }
+
     var selectedScreen by remember { mutableStateOf<Screen>(Screen.Map) }
     var globalRefreshTrigger by remember { mutableStateOf(0) }
 
@@ -123,42 +140,46 @@ fun SADApp() {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(bg)) {
-        Box(modifier = Modifier.fillMaxSize().padding(bottom = 68.dp)) {
-            when (selectedScreen) {
-                Screen.Map          -> MapScreen()
-                Screen.Quests       -> QuestScreen(globalRefreshTrigger)
-                Screen.Rumors       -> RumorsScreen()
-                Screen.Achievements -> AchievementsScreen(onRefreshRequested = { globalRefreshTrigger++ })
+    CompositionLocalProvider(LocalAppColors provides colors) {
+        Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
+            Box(modifier = Modifier.fillMaxSize().padding(bottom = 68.dp)) {
+                when (selectedScreen) {
+                    Screen.Map          -> MapScreen()
+                    Screen.Quests       -> QuestScreen(globalRefreshTrigger)
+                    Screen.Rumors       -> RumorsScreen()
+                    Screen.Achievements -> AchievementsScreen(onRefreshRequested = { globalRefreshTrigger++ })
+                    Screen.Settings     -> SettingsScreen(onThemeChanged = { currentTheme = it })
+                }
             }
-        }
 
-        // Custom Bottom Navigation
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(68.dp)
-                .background(surface)
-        ) {
-            Divider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.dp,
-                color = cyan.copy(alpha = 0.2f)
-            )
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+            // Custom Bottom Navigation
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(68.dp)
+                    .background(colors.surface)
             ) {
-                listOf(Screen.Map, Screen.Quests, Screen.Rumors, Screen.Achievements).forEach { screen ->
-                    val isSelected = selectedScreen == screen
-                    val accentColor = when (screen) {
-                        Screen.Achievements -> pink
-                        Screen.Rumors -> Color(0xFFFFD700)
-                        else -> cyan
+                Divider(
+                    modifier = Modifier.fillMaxWidth(),
+                    thickness = 1.dp,
+                    color = colors.primary.copy(alpha = 0.2f)
+                )
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf(Screen.Map, Screen.Quests, Screen.Rumors, Screen.Achievements, Screen.Settings).forEach { screen ->
+                        val isSelected = selectedScreen == screen
+                        val accentColor = when (screen) {
+                            Screen.Achievements -> colors.accent
+                            Screen.Rumors -> colors.gold
+                            Screen.Settings -> colors.primary
+                            else -> colors.primary
+                        }
+                        NavItem(screen, isSelected, accentColor) { selectedScreen = screen }
                     }
-                    NavItem(screen, isSelected, accentColor) { selectedScreen = screen }
                 }
             }
         }

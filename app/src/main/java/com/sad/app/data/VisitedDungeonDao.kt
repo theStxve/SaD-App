@@ -21,4 +21,10 @@ interface VisitedDungeonDao {
 
     @Query("SELECT * FROM visited_dungeons")
     fun getAllFlow(): kotlinx.coroutines.flow.Flow<List<VisitedDungeon>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(dungeons: List<VisitedDungeon>)
+
+    @Query("DELETE FROM visited_dungeons")
+    suspend fun deleteAll()
 }

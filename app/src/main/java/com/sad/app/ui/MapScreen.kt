@@ -41,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
 import com.sad.app.data.AppDatabase
 import com.sad.app.data.ExploredArea
 import com.sad.app.data.GameDatabase
@@ -226,7 +227,9 @@ fun MapScreen() {
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(CyberpunkBackground)) {
+        val colors = LocalAppColors.current
+
+        Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
             if (userLocation != null) {
                 OSMMapView(userLocation!!, places, exploredCenters, rumors, visitedIds, followPlayer, currentZoom)
                 
@@ -244,21 +247,21 @@ fun MapScreen() {
                     ) {
                         // Links: Dungeon-Zähler
                         Surface(
-                            color = CyberpunkBackground.copy(alpha = 0.85f),
+                            color = colors.surface.copy(alpha = 0.9f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                Text("RADAR SCAN", color = CyberpunkNeonCyan, fontSize = 9.sp, letterSpacing = 2.sp)
-                                Text("${places.size} Dungeons", color = androidx.compose.ui.graphics.Color.White,
+                                Text("RADAR SCAN", color = colors.primary, fontSize = 9.sp, letterSpacing = 2.sp)
+                                Text("${places.size} Dungeons", color = colors.textPrimary,
                                      fontSize = 16.sp, fontWeight = FontWeight.Black)
-                                Text("${exploredCenters.size} Sektoren", color = CyberpunkNeonPink, fontSize = 11.sp)
+                                Text("${exploredCenters.size} Sektoren", color = colors.accent, fontSize = 11.sp)
                             }
                         }
                         
                         // Rechts: Follow-Toggle Button
                         Surface(
-                            color = if (followPlayer) CyberpunkNeonCyan.copy(alpha = 0.2f)
-                                    else CyberpunkBackground.copy(alpha = 0.85f),
+                            color = if (followPlayer) colors.primary.copy(alpha = 0.2f)
+                                    else colors.surface.copy(alpha = 0.9f),
                             shape = RoundedCornerShape(10.dp),
                             onClick = { followPlayer = !followPlayer }
                         ) {
@@ -268,7 +271,7 @@ fun MapScreen() {
                             ) {
                                 Text(
                                     if (followPlayer) "FOLGT" else "FREI",
-                                    color = if (followPlayer) CyberpunkNeonCyan else androidx.compose.ui.graphics.Color.Gray,
+                                    color = if (followPlayer) colors.primary else colors.textSecondary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 2.sp
@@ -379,6 +382,7 @@ fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false): B
 @Composable
 fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: List<GeoPoint>, rumors: List<Rumor>, visitedIds: Set<String>, followPlayer: Boolean = true, currentZoom: Float = 17f) {
     val context = LocalContext.current
+    val colors = LocalAppColors.current
     
     // Cache the marker icons to prevent 60fps bitmap recreation during zoom
     val epicIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF00E6"), false) }
@@ -436,10 +440,16 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
             } else {
                 var fog = mapView.overlays.find { it is FogOfWarOverlay } as? FogOfWarOverlay
                 if (fog == null) {
-                    fog = FogOfWarOverlay(exploredCenters, center)
+                    fog = FogOfWarOverlay(
+                        exploredCenters, center,
+                        themeColor = colors.primary.toArgb(),
+                        fogOpacity = MapSettingsManager.current.fogOpacity
+                    )
                     mapView.overlays.add(0, fog)
                 } else {
                     fog.exploredAreas = exploredCenters
+                    fog.themeColor = colors.primary.toArgb()
+                    fog.fogOpacity = MapSettingsManager.current.fogOpacity
                 }
             }
             
@@ -482,6 +492,26 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
         }
     }
 
+    // Reaktiver Kartenfilter: update bei Theme-Wechsel ODER Slider-Änderung
+    val mapSettings = MapSettingsManager.current
+    LaunchedEffect(colors.isDark, mapSettings) {
+        mapViewRef?.let { map ->
+            // Wenn Light-Theme aktiv UND Invertierung aus → kein Filter
+            val effectiveSettings = if (!colors.isDark)
+                mapSettings.copy(isInverted = false)
+            else
+                mapSettings
+            map.overlayManager.tilesOverlay.setColorFilter(
+                MapSettingsManager.buildColorFilter(effectiveSettings)
+            )
+            // Nebel-Deckkraft live aktualisieren
+            (map.overlays.find { it is FogOfWarOverlay } as? FogOfWarOverlay)?.let {
+                it.fogOpacity = mapSettings.fogOpacity
+            }
+            map.invalidate()
+        }
+    }
+
     AndroidView(
         factory = { ctx ->
             MapView(ctx).apply {
@@ -500,14 +530,14 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
                 })
                 overlays.add(0, mapEventsOverlay)
                 
-                // Dark Mode Matrix für Cyberpunk Radar-Look
-                val inverseMatrix = ColorMatrix(floatArrayOf(
-                    -1.0f, 0.0f, 0.0f, 0.0f, 255f,
-                    0.0f, -1.0f, 0.0f, 0.0f, 255f,
-                    0.0f, 0.0f, -1.0f, 0.0f, 255f,
-                    0.0f, 0.0f, 0.0f, 1.0f, 0.0f
-                ))
-                overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(inverseMatrix))
+                // Initialer Kartenfilter (aus MapSettings laden)
+                val initSettings = if (!colors.isDark)
+                    MapSettingsManager.current.copy(isInverted = false)
+                else
+                    MapSettingsManager.current
+                overlayManager.tilesOverlay.setColorFilter(
+                    MapSettingsManager.buildColorFilter(initSettings)
+                )
                 
                 // Spieler Marker
                 val playerMarker = Marker(this).apply {
@@ -521,7 +551,15 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
             }
         },
         update = { mapView ->
-            // Nichts tun hier! Update der Overlays passiert im LaunchedEffect
+            // Tile-Filter live updaten wenn mapSettings sich ändert
+            val effectiveSettings = if (!colors.isDark)
+                mapSettings.copy(isInverted = false)
+            else
+                mapSettings
+            mapView.overlayManager.tilesOverlay.setColorFilter(
+                MapSettingsManager.buildColorFilter(effectiveSettings)
+            )
+            mapView.invalidate()
         },
         modifier = Modifier.fillMaxSize()
     )

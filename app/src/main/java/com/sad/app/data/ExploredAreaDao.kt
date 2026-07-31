@@ -17,4 +17,10 @@ interface ExploredAreaDao {
     // Das verhindert, dass wir tausende identische Einträge speichern
     @Query("SELECT COUNT(*) FROM explored_areas WHERE ABS(lat - :lat) < 0.0005 AND ABS(lon - :lon) < 0.0005")
     suspend fun isNearbyExplored(lat: Double, lon: Double): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(areas: List<ExploredArea>)
+
+    @Query("DELETE FROM explored_areas")
+    suspend fun deleteAll()
 }

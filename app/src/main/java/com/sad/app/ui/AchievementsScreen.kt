@@ -123,12 +123,12 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
     val prefs = remember { context.getSharedPreferences("player_profile", android.content.Context.MODE_PRIVATE) }
     var isDevModeUnlocked by remember { mutableStateOf(prefs.getBoolean("is_dev_mode_unlocked", false)) }
 
-
-    val bg = Color(0xFF0A0A12)
-    val cyan = Color(0xFF00F3FF)
-    val pink = Color(0xFFFF00E6)
-    val gold = Color(0xFFFFD700)
-    val surface = Color(0xFF111122)
+    val colors = LocalAppColors.current
+    val bg = colors.bg
+    val cyan = colors.primary
+    val pink = colors.accent
+    val gold = colors.gold
+    val surface = colors.surface
 
     // Welche Achievements sind freigeschaltet?
     val unlocked = remember(profile) {
@@ -309,42 +309,7 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
             AchievementCard(achievement, isUnlocked, surface, gold, cyan)
         }
 
-        item {
-            Spacer(Modifier.height(20.dp))
-            // Share Button jetzt ganz unten
-            val shareText = "--- SYSTEM LOG: CITY AS A DUNGEON ---\n" +
-                "ID: USER_${profile.title.uppercase()}_${profile.level}\n" +
-                "LEVEL: ${profile.level} [${profile.title}]\n" +
-                "EXPLORED: ${profile.exploredCount} NODES\n" +
-                "DUNGEONS: ${profile.visitedDungeons} CLEARED\n" +
-                "RUMORS: ${prefs.getInt("received_rumors_count", 0)} SYNCED\n" +
-                "ACHIEVEMENTS: ${unlocked.size}/${ALL_ACHIEVEMENTS.size}\n" +
-                "------------------------------------\n" +
-                "Join the network: #CityAsADungeon #SAD"
-
-            Button(
-                onClick = {
-                    prefs.edit().putBoolean("has_shared", true).apply()
-                    internalRefreshTrigger++
-                    onRefreshRequested()
-                    
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareText)
-                    }
-                    context.startActivity(Intent.createChooser(intent, "TERMINAL BROADCAST"))
-                },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A1A2E)),
-                shape = androidx.compose.foundation.shape.CutCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, cyan.copy(alpha = 0.4f))
-            ) {
-                Text("📤 FORTSCHRITT TEILEN", color = cyan, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 2.sp)
-            }
-        }
     }
-
-
 
     if (showSecretMenu) {
         val coroutineScope = rememberCoroutineScope()

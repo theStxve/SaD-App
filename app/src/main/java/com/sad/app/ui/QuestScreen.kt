@@ -62,20 +62,15 @@ val ALL_QUESTS = listOf(
 @Composable
 fun QuestScreen(refreshKey: Int = 0) {
     val context = LocalContext.current
+    val colors = LocalAppColors.current
     val profile by produceState(initialValue = PlayerProfile.load(context), refreshKey) {
         value = PlayerProfile.load(context)
     }
-    
-    val bg = Color(0xFF0A0A12)
-    val cyan = Color(0xFF00F3FF)
-    val pink = Color(0xFFFF00E6)
-    val gold = Color(0xFFFFD700)
-    val surface = Color(0xFF111122)
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(bg)
+            .background(colors.bg)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
@@ -83,11 +78,11 @@ fun QuestScreen(refreshKey: Int = 0) {
         item {
             // Header
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("QUEST LOG", color = cyan, fontSize = 11.sp, letterSpacing = 4.sp)
-                Text("Aufträge", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Text("QUEST LOG", color = colors.primary, fontSize = 11.sp, letterSpacing = 4.sp)
+                Text("Aufträge", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(4.dp))
                 Text("Fortschritt: ${profile.exploredCount} Bereiche erkundet • ${profile.visitedDungeons} Dungeons", 
-                     color = Color.Gray, fontSize = 13.sp)
+                     color = colors.textSecondary, fontSize = 13.sp)
             }
         }
 
@@ -95,7 +90,7 @@ fun QuestScreen(refreshKey: Int = 0) {
         grouped.forEach { (category, quests) ->
             item {
                 Spacer(Modifier.height(8.dp))
-                Text(category.uppercase(), color = pink, fontSize = 11.sp, letterSpacing = 3.sp,
+                Text(category.uppercase(), color = colors.accent, fontSize = 11.sp, letterSpacing = 3.sp,
                      fontWeight = FontWeight.Bold)
             }
             items(quests) { quest ->
@@ -107,22 +102,22 @@ fun QuestScreen(refreshKey: Int = 0) {
                     else -> 0
                 }
                 val completed = progress >= quest.targetCount
-                QuestCard(quest, progress, completed, cyan, gold, surface)
+                QuestCard(quest, progress, completed, colors)
             }
         }
     }
 }
 
 @Composable
-fun QuestCard(quest: Quest, progress: Int, completed: Boolean, cyan: Color, gold: Color, surface: Color) {
-    val borderColor = if (completed) gold else Color(0xFF223344)
+fun QuestCard(quest: Quest, progress: Int, completed: Boolean, colors: AppColors) {
+    val borderColor = if (completed) colors.gold else colors.surfaceVariant
     val progressFraction = (progress.toFloat() / quest.targetCount).coerceIn(0f, 1f)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(surface)
+            .background(colors.surface)
             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
@@ -135,20 +130,20 @@ fun QuestCard(quest: Quest, progress: Int, completed: Boolean, cyan: Color, gold
                     Text(
                         text = quest.icon,
                         fontSize = 24.sp,
-                        color = if (completed) gold else cyan,
+                        color = if (completed) colors.gold else colors.primary,
                         fontWeight = FontWeight.Light
                     )
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(quest.title, color = if (completed) gold else Color.White,
+                    Text(quest.title, color = if (completed) colors.gold else colors.textPrimary,
                          fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text(quest.description, color = Color.Gray, fontSize = 12.sp)
+                    Text(quest.description, color = colors.textSecondary, fontSize = 12.sp)
                 }
                 if (completed) {
-                    Text("✓", color = gold, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("✓", color = colors.gold, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 } else {
-                    Text("+${quest.xpReward} XP", color = cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("+${quest.xpReward} XP", color = colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -160,19 +155,19 @@ fun QuestCard(quest: Quest, progress: Int, completed: Boolean, cyan: Color, gold
                         .fillMaxWidth()
                         .height(4.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color(0xFF223344))
+                        .background(colors.surfaceVariant)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progressFraction)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(2.dp))
-                            .background(cyan)
+                            .background(colors.primary)
                     )
                 }
                 Spacer(Modifier.height(4.dp))
                 Text("${progress.coerceAtMost(quest.targetCount)} / ${quest.targetCount}",
-                     color = Color.Gray, fontSize = 11.sp)
+                     color = colors.textSecondary, fontSize = 11.sp)
             }
         }
     }

@@ -25,6 +25,7 @@ import java.util.*
 @Composable
 fun RumorsScreen() {
     val context = LocalContext.current
+    val colors = LocalAppColors.current
     val gameDb = remember { GameDatabase.getDatabase(context) }
     val rumors by gameDb.rumorDao().getAllFlow().collectAsState(initial = emptyList())
     
@@ -41,26 +42,20 @@ fun RumorsScreen() {
         onDispose { syncManager.stopAll() }
     }
 
-    val bg = Color(0xFF0A0A12)
-    val cyan = Color(0xFF00F3FF)
-    val pink = Color(0xFFFF00E6)
-    val surface = Color(0xFF111122)
-    val gold = Color(0xFFFFD700)
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(bg)
+            .background(colors.bg)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
             Column {
-                Text("GERÜCHTE", color = cyan, fontSize = 11.sp, letterSpacing = 4.sp)
-                Text("Spieler-Netzwerk", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Text("GERÜCHTE", color = colors.primary, fontSize = 11.sp, letterSpacing = 4.sp)
+                Text("Spieler-Netzwerk", color = colors.textPrimary, fontSize = 28.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(4.dp))
-                Text("Triff andere Spieler und tausche Geheimnisse aus.", color = Color.Gray, fontSize = 13.sp)
+                Text("Triff andere Spieler und tausche Geheimnisse aus.", color = colors.textSecondary, fontSize = 13.sp)
                 Spacer(Modifier.height(16.dp))
 
                 // Status Box
@@ -68,8 +63,8 @@ fun RumorsScreen() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(surface)
-                        .border(1.dp, cyan.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .background(colors.surface)
+                        .border(1.dp, colors.primary.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                         .padding(16.dp)
                 ) {
                     Column {
@@ -78,10 +73,10 @@ fun RumorsScreen() {
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(androidx.compose.foundation.shape.CircleShape)
-                                    .background(if (isScanning) cyan else Color.Gray)
+                                    .background(if (isScanning) colors.primary else colors.textSecondary)
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text(syncStatus, color = Color.White, fontSize = 13.sp)
+                            Text(syncStatus, color = colors.textPrimary, fontSize = 13.sp)
                         }
                         Spacer(Modifier.height(12.dp))
                         Button(
@@ -96,14 +91,14 @@ fun RumorsScreen() {
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isScanning) pink.copy(alpha = 0.2f) else cyan.copy(alpha = 0.2f)
+                                containerColor = if (isScanning) colors.accent.copy(alpha = 0.2f) else colors.primary.copy(alpha = 0.2f)
                             ),
                             shape = RoundedCornerShape(8.dp),
                             border = ButtonDefaults.outlinedButtonBorder
                         ) {
                             Text(
                                 if (isScanning) "SUCHE STOPPEN" else "SPIELER IN DER NÄHE SUCHEN",
-                                color = if (isScanning) pink else cyan,
+                                color = if (isScanning) colors.accent else colors.primary,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp
                             )
@@ -119,25 +114,25 @@ fun RumorsScreen() {
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Noch keine Gerüchte", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("Noch keine Gerüchte", color = colors.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(8.dp))
-                            Text("Triff andere Spieler um Geheimnisse\nüber Dungeons zu erfahren!", color = Color.Gray, fontSize = 13.sp)
+                            Text("Triff andere Spieler um Geheimnisse\nüber Dungeons zu erfahren!", color = colors.textSecondary, fontSize = 13.sp)
                         }
                     }
                 } else {
-                Text("GERÜCHTE", color = pink, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                    Text("GERÜCHTE", color = colors.accent, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         items(rumors) { rumor ->
-            RumorCard(rumor, surface, cyan, gold)
+            RumorCard(rumor, colors)
         }
     }
 }
 
 @Composable
-fun RumorCard(rumor: Rumor, surface: Color, cyan: Color, gold: Color) {
+fun RumorCard(rumor: Rumor, colors: AppColors) {
     val timeFormat = remember { SimpleDateFormat("dd.MM · HH:mm", Locale.GERMANY) }
     val timeStr = timeFormat.format(Date(rumor.receivedAt))
 
@@ -145,8 +140,8 @@ fun RumorCard(rumor: Rumor, surface: Color, cyan: Color, gold: Color) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(surface)
-            .border(1.dp, if (!rumor.isRead) cyan.copy(alpha = 0.5f) else Color(0xFF1A1A2E), RoundedCornerShape(12.dp))
+            .background(colors.surface)
+            .border(1.dp, if (!rumor.isRead) colors.primary.copy(alpha = 0.5f) else colors.surfaceVariant, RoundedCornerShape(12.dp))
             .padding(14.dp)
     ) {
         Column {
@@ -155,14 +150,14 @@ fun RumorCard(rumor: Rumor, surface: Color, cyan: Color, gold: Color) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("${rumor.fromPlayer}", color = gold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(timeStr, color = Color.Gray, fontSize = 11.sp)
+                Text("${rumor.fromPlayer}", color = colors.gold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(timeStr, color = colors.textSecondary, fontSize = 11.sp)
             }
             Spacer(Modifier.height(6.dp))
-            Text(rumor.message, color = Color.White, fontSize = 14.sp)
+            Text(rumor.message, color = colors.textPrimary, fontSize = 14.sp)
             if (rumor.placeName.isNotEmpty() && rumor.placeName != "Spieler-Update") {
                 Spacer(Modifier.height(6.dp))
-                Text(rumor.placeName, color = cyan, fontSize = 12.sp)
+                Text(rumor.placeName, color = colors.primary, fontSize = 12.sp)
             }
         }
     }
