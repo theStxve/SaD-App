@@ -100,7 +100,7 @@ fun MapScreen() {
         // Startposition auf null setzen, damit der "INITIATING SCAN..." Ladebildschirm gezeigt wird, bis echtes GPS da ist
         var userLocation by remember { mutableStateOf<GeoPoint?>(null) }
         var places by remember { mutableStateOf<List<PlaceEntity>>(emptyList()) }
-        var exploredCenters by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+        var exploredCenters by remember { mutableStateOf<List<ExploredPoint>>(emptyList()) }
         var followPlayer by remember { mutableStateOf(true) }
         var nearbyDungeon by remember { mutableStateOf<PlaceEntity?>(null) }
         var dungeonJustEntered by remember { mutableStateOf(false) }
@@ -114,9 +114,7 @@ fun MapScreen() {
         // 1. Beim Start: Alle früher erkundeten Bereiche aus DB laden
         LaunchedEffect(Unit) {
             val saved = withContext(Dispatchers.IO) { gameDb.exploredAreaDao().getAll() }
-            exploredCenters = saved.map { GeoPoint(it.lat, it.lon) }
-            // Falls noch nie etwas erkundet wurde, bleibt die Liste erstmal leer, 
-            // bis das GPS das erste echte Signal schickt.
+            exploredCenters = saved.map { ExploredPoint(GeoPoint(it.lat, it.lon), radiusMeters = it.radius) }
         }
 
         // 2. Initiales Laden entfernt: Warten jetzt auf echtes GPS-Signal
@@ -184,15 +182,17 @@ fun MapScreen() {
                     val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(loc.latitude, loc.longitude)
                     if (alreadyExplored == 0) {
                         val newCenter = GeoPoint(loc.latitude, loc.longitude)
-                        val lastCenter = exploredCenters.lastOrNull()
+                        val lastPoint = exploredCenters.lastOrNull()
                         val isConnectionMode = MapSettingsManager.current.connectionModeEnabled
+                        val currentRadius = MapSettingsManager.current.visionRadiusMeters
                         
-                        gameDb.exploredAreaDao().insert(ExploredArea(lat = loc.latitude, lon = loc.longitude))
+                        gameDb.exploredAreaDao().insert(ExploredArea(lat = loc.latitude, lon = loc.longitude, radius = currentRadius))
                         PlayerProfile.incrementExplored(context)
                         
-                        val addedPoints = mutableListOf<GeoPoint>()
-                        if (isConnectionMode && lastCenter != null) {
-                            val step = MapSettingsManager.current.visionRadiusMeters
+                        val addedPoints = mutableListOf<ExploredPoint>()
+                        if (isConnectionMode && lastPoint != null) {
+                            val lastCenter = lastPoint.geoPoint
+                            val step = currentRadius
                             val results = FloatArray(1)
                             Location.distanceBetween(lastCenter.latitude, lastCenter.longitude, newCenter.latitude, newCenter.longitude, results)
                             val dist = results[0].toDouble()
@@ -202,14 +202,15 @@ fun MapScreen() {
                                     val frac = i.toDouble() / stepsCount
                                     val iLat = lastCenter.latitude + frac * (newCenter.latitude - lastCenter.latitude)
                                     val iLon = lastCenter.longitude + frac * (newCenter.longitude - lastCenter.longitude)
-                                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon))
-                                    addedPoints.add(GeoPoint(iLat, iLon))
+                                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = currentRadius))
+                                    addedPoints.add(ExploredPoint(GeoPoint(iLat, iLon), radiusMeters = currentRadius))
                                 }
                             }
                         }
 
+                        val newExploredPoint = ExploredPoint(newCenter, radiusMeters = currentRadius)
                         withContext(Dispatchers.Main) {
-                            exploredCenters = exploredCenters + addedPoints + listOf(newCenter)
+                            exploredCenters = exploredCenters + addedPoints + listOf(newExploredPoint)
                         }
                     }
                 }
@@ -405,7 +406,7 @@ fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false): B
 }
 
 @Composable
-fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: List<GeoPoint>, rumors: List<Rumor>, visitedIds: Set<String>, followPlayer: Boolean = true, currentZoom: Float = 17f) {
+fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: List<ExploredPoint>, rumors: List<Rumor>, visitedIds: Set<String>, followPlayer: Boolean = true, currentZoom: Float = 17f) {
     val context = LocalContext.current
     val colors = LocalAppColors.current
     

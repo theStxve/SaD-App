@@ -5,14 +5,19 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 
+data class ExploredPoint(
+    val geoPoint: GeoPoint,
+    val radiusMeters: Double = 150.0
+)
+
 /**
  * Fog of War Overlay:
  * - Verdeckt unerkundete Gebiete mit einem Nebelschleier
- * - Erkundete Punkte werden sauber freigeschnitten
+ * - Jeder erkundete Punkt wird mit seinem individuellen Radius freigeschnitten
  * - Spieler-Standort erhält einen leuchtenden Neon-Rand
  */
 class FogOfWarOverlay(
-    var exploredAreas: List<GeoPoint>,
+    var exploredAreas: List<ExploredPoint>,
     var currentLocation: GeoPoint?,
     var themeColor: Int = Color.parseColor("#00F3FF"),
     var fogOpacity: Float = 0.85f,
@@ -41,8 +46,6 @@ class FogOfWarOverlay(
         if (shadow) return
         if (canvas.width <= 0 || canvas.height <= 0) return
 
-        val radiusPx = calculateRadiusPx(mapView)
-
         val saveCount = canvas.saveLayer(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), null)
 
         // 1. Nebel mit konfigurierbarer Opazität über gesamte Karte legen
@@ -55,32 +58,34 @@ class FogOfWarOverlay(
         )
         canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), fogPaint)
 
-        // 2. Für jeden erkundeten Punkt ein Loch freischneiden
-        for (geoPoint in exploredAreas) {
-            val point = mapView.projection.toPixels(geoPoint, null)
+        // 2. Für jeden erkundeten Punkt ein Loch mit seinem eigenen Radius freischneiden
+        for (exploredPoint in exploredAreas) {
+            val point = mapView.projection.toPixels(exploredPoint.geoPoint, null)
+            val radiusPx = calculateRadiusPx(mapView, exploredPoint.radiusMeters)
             canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radiusPx, clearPaint)
         }
 
-        // 3. Aktuelles Nebel-Loch & leuchtender Rand um den Spieler
+        // 3. Aktuelles Nebel-Loch & leuchtender Rand um den Spieler (aktuelle Sichtweite)
         currentLocation?.let { current ->
             val point = mapView.projection.toPixels(current, null)
-            canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radiusPx, clearPaint)
+            val currentRadiusPx = calculateRadiusPx(mapView, visionRadiusMeters)
+            canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), currentRadiusPx, clearPaint)
 
             playerEdgePaint.color = Color.argb(220, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor))
-            canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radiusPx, playerEdgePaint)
+            canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), currentRadiusPx, playerEdgePaint)
         }
 
         canvas.restoreToCount(saveCount)
     }
 
-    private fun calculateRadiusPx(mapView: MapView): Float {
+    private fun calculateRadiusPx(mapView: MapView, radiusMeters: Double): Float {
         val center = mapView.mapCenter as GeoPoint
         val centerPixel = mapView.projection.toPixels(center, null)
 
-        val offsetDeg = visionRadiusMeters / 111320.0
+        val offsetDeg = radiusMeters / 111320.0
         val northPoint = GeoPoint(center.latitude + offsetDeg, center.longitude)
         val northPixel = mapView.projection.toPixels(northPoint, null)
 
-        return Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(10f)
+        return Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(6f)
     }
 }

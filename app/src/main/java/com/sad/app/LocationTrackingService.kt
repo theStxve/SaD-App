@@ -97,7 +97,7 @@ class LocationTrackingService : Service() {
         // 1. Fog of War im Hintergrund aufdecken!
         val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(lat, lon)
         if (alreadyExplored == 0) {
-            gameDb.exploredAreaDao().insert(ExploredArea(lat = lat, lon = lon))
+            gameDb.exploredAreaDao().insert(ExploredArea(lat = lat, lon = lon, radius = stepMeters))
             PlayerProfile.incrementExplored(this@LocationTrackingService)
 
             lastProcessedLocation?.let { lastLoc ->
@@ -113,7 +113,7 @@ class LocationTrackingService : Service() {
                             val frac = i.toDouble() / stepsCount
                             val iLat = lastLat + frac * (lat - lastLat)
                             val iLon = lastLon + frac * (lon - lastLon)
-                            gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon))
+                            gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
                         }
                     }
                 }

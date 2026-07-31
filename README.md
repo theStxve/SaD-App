@@ -22,28 +22,16 @@
 
 ## Settings-Tab
 
-Ab Version 1.0.3 gibt es einen Einstellungs-Tab mit voller Themes-, Karten- und Profilverwaltung.
+Ab Version 1.0.4 gibt es einen Einstellungs-Tab mit voller Themes-, Karten- und Profilverwaltung.
 
 ### Spielerprofil & Visuelles Teilen
 - **Operative-Name** – Eigenen Spielernamen festlegen, der auf generierten Profilkarten und Berichten verwendet wird
 - **Visuelles Karten-Sharing** – Generiere hochauflösende Profilgrafiken (ID-Karte & Stats-Panel) mit 5 auswählbaren Farbschemata zum Teilen via Messenger/Social Media
 
-### Farbschema
-Vier auswählbare App-Themes, die alle Screens und die Navigationsleiste einschließen:
-
-| Theme | Beschreibung |
-|---|---|
-| **Legacy** | Dunkles Cyberpunk-Design mit Neon-Cyan und -Pink (Standard) |
-| **Light** | Helles Tages-Design mit klarer, lesbarer Karte |
-| **Inferno** | Dunkles Design mit Neon-Orange und Rot |
-| **Matrix** | Terminal-Look mit Neon-Grün auf Schwarz |
-
-Das Light-Theme deaktiviert den Karten-Invertierungsfilter automatisch und zeigt normale helle OpenStreetMap-Kacheln.
-
 ### Karten-Anpassung & Erkundung
 Die Kartenanzeige lässt sich unabhängig vom Theme konfigurieren:
 
-- **Präzisionsmodus** – Kleinere Erkundungskreise (20m) für exakte Pfade (Toggle)
+- **Dynamischer Präzisionsmodus** – Speichert den individuellen Aufdeckradius (20m) pro aufgedecktem Punkt. Früher erkundete Bereiche behalten ihre ursprünglichen Kreise, während neu gelaufene Spuren präzise aufgezeichnet werden (Toggle)
 - **Verbindungsmodus** – Deckt die direkte Linie zwischen gemessenen GPS-Punkten auf (Toggle)
 - **Dark-Mode Invertierung** – Karte hell/dunkel umkehren (Toggle)
 - **Kontrast & Helligkeit** – Stärke der Straßen- und Gebäudehervorhebung
