@@ -37,6 +37,9 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
     var pendingAddonUri by remember { mutableStateOf<Uri?>(null) }
     var addonNameInput by remember { mutableStateOf("") }
     var showAddonDialog by remember { mutableStateOf(false) }
+    var showShareSheet by remember { mutableStateOf(false) }
+
+    var playerNameInput by remember { mutableStateOf(PlayerProfile.load(context).playerName) }
 
     val addonPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -87,6 +90,48 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                 fontWeight = FontWeight.Black
             )
             Spacer(Modifier.height(16.dp))
+        }
+
+        // ── Spielerprofil ────────────────────────────────────────────────────
+        item {
+            Text(
+                "SPIELERPROFIL",
+                color = colors.textSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(14.dp)
+            ) {
+                Text("Dein Operative-Name", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = playerNameInput,
+                    onValueChange = { newName ->
+                        playerNameInput = newName
+                        PlayerProfile.setPlayerName(context, newName)
+                    },
+                    singleLine = true,
+                    placeholder = { Text("z.B. CyberRunner99", color = colors.textSecondary.copy(alpha = 0.5f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.surfaceVariant,
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Divider(color = colors.surfaceVariant)
+            Spacer(Modifier.height(20.dp))
         }
 
         // ── Theme Picker ─────────────────────────────────────────────────────
@@ -508,19 +553,13 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                 "Join the network: #CityAsADungeon #SAD"
 
             Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareText)
-                    }
-                    context.startActivity(Intent.createChooser(intent, "TERMINAL BROADCAST"))
-                },
+                onClick = { showShareSheet = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant),
                 shape = androidx.compose.foundation.shape.CutCornerShape(8.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.4f))
             ) {
-                Text("📤 FORTSCHRITT TEILEN", color = colors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 2.sp)
+                Text("📤 PROFILKARTE TEILEN", color = colors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 2.sp)
             }
 
             Spacer(Modifier.height(32.dp))
@@ -633,6 +672,14 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                     Text("ABBRECHEN", color = colors.textSecondary)
                 }
             }
+        )
+    }
+
+    // ── Share Profile Sheet ───────────────────────────────────────────────────
+    if (showShareSheet) {
+        ShareProfileSheet(
+            profile = PlayerProfile.load(context),
+            onDismiss = { showShareSheet = false }
         )
     }
 }

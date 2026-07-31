@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 
 data class PlayerProfile(
+    val playerName: String,
     val xp: Int,
     val level: Int,
     val exploredCount: Int,
@@ -13,9 +14,13 @@ data class PlayerProfile(
     val title: String,
     val unlockedAchievements: Set<String>
 ) {
+    val displayName: String
+        get() = playerName.ifBlank { "Agent_$level" }
+
     companion object {
         fun load(context: Context): PlayerProfile {
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            val playerName = prefs.getString("player_name", "") ?: ""
             val xp = prefs.getInt("xp", 0)
             val explored = prefs.getInt("explored_count", 0)
             val dungeons = prefs.getInt("visited_dungeons", 0)
@@ -33,7 +38,12 @@ data class PlayerProfile(
                 else         -> "Neuling"
             }
             val unlockedAchievements = prefs.getStringSet("unlocked_achievements", emptySet()) ?: emptySet()
-            return PlayerProfile(xp, level, explored, dungeons, nightExplored, morningExplored, title, unlockedAchievements)
+            return PlayerProfile(playerName, xp, level, explored, dungeons, nightExplored, morningExplored, title, unlockedAchievements)
+        }
+
+        fun setPlayerName(context: Context, name: String) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            prefs.edit().putString("player_name", name.trim()).apply()
         }
         
         fun unlockAchievement(context: Context, id: String) {

@@ -22,7 +22,11 @@
 
 ## Settings-Tab
 
-Ab Version 1.0.2 gibt es einen dedizierten Einstellungs-Tab in der Navigation.
+Ab Version 1.0.3 gibt es einen Einstellungs-Tab mit voller Themes-, Karten- und Profilverwaltung.
+
+### Spielerprofil & Visuelles Teilen
+- **Operative-Name** – Eigenen Spielernamen festlegen, der auf generierten Profilkarten und Berichten verwendet wird
+- **Visuelles Karten-Sharing** – Generiere hochauflösende Profilgrafiken (ID-Karte & Stats-Panel) mit 5 auswählbaren Farbschemata zum Teilen via Messenger/Social Media
 
 ### Farbschema
 Vier auswählbare App-Themes, die alle Screens und die Navigationsleiste einschließen:
