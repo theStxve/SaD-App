@@ -65,7 +65,7 @@ echo  [OK] Karte gefunden: !INPUT_PBF!
 :: --- SCHRITT 4: Python-Skript ausführen ---
 echo  [3/3] Starte Extraktion...
 echo.
-python "%~dp0process_map.py" "!INPUT_PBF!"
+python "%~dp0process_map.py" "!INPUT_PBF!" %2
 
 if errorlevel 1 (
     echo.
