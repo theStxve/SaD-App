@@ -10,13 +10,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStreamWriter
 
 data class AddonMeta(
     val id: String,
     val name: String,
     val placeCount: Int,
     val importedAt: Long,
-    val filePath: String
+    val filePath: String,
+    val isEnabled: Boolean = true,
+    val fileType: String = "db" // "db" oder "json"
 )
 
 object AddonManager {
@@ -44,7 +47,9 @@ object AddonManager {
                         name = obj.getString("name"),
                         placeCount = obj.getInt("placeCount"),
                         importedAt = obj.getLong("importedAt"),
-                        filePath = obj.getString("filePath")
+                        filePath = obj.getString("filePath"),
+                        isEnabled = obj.optBoolean("isEnabled", true),
+                        fileType = obj.optString("fileType", if (obj.getString("filePath").endsWith(".json")) "json" else "db")
                     )
                 )
             }
@@ -63,6 +68,8 @@ object AddonManager {
                 put("placeCount", item.placeCount)
                 put("importedAt", item.importedAt)
                 put("filePath", item.filePath)
+                put("isEnabled", item.isEnabled)
+                put("fileType", item.fileType)
             }
             jsonArray.put(obj)
         }
@@ -72,27 +79,48 @@ object AddonManager {
         installedAddons = list
     }
 
+    fun toggleAddon(context: Context, addonId: String, enabled: Boolean) {
+        val updated = installedAddons.map {
+            if (it.id == addonId) it.copy(isEnabled = enabled) else it
+        }
+        saveAddonsList(context, updated)
+    }
+
     fun importAddon(context: Context, uri: Uri, customName: String): Result<AddonMeta> {
         return try {
             val addonsDir = File(context.filesDir, "addons").apply { if (!exists()) mkdirs() }
             val addonId = "addon_${System.currentTimeMillis()}"
-            val destFile = File(addonsDir, "$addonId.db")
 
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            // Feststellen ob JSON oder DB
+            val contentResolver = context.contentResolver
+            val mimeType = contentResolver.getType(uri) ?: ""
+            val isJson = mimeType.contains("json") || uri.path?.endsWith(".json", ignoreCase = true) == true
+
+            val fileExt = if (isJson) "json" else "db"
+            val destFile = File(addonsDir, "$addonId.$fileExt")
+
+            contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(destFile).use { output ->
                     input.copyTo(output)
                 }
             } ?: return Result.failure(Exception("Datei konnte nicht gelesen werden"))
 
-            // Prüfen ob die DB valide ist und Orte zählen
-            val placeCount = countPlacesInDb(destFile)
+            // Prüfen ob die Datei valide ist und Orte zählen
+            val placeCount = if (isJson) countPlacesInJson(destFile) else countPlacesInDb(destFile)
+
+            if (placeCount == 0) {
+                destFile.delete()
+                return Result.failure(Exception("Keine gültigen Orte im Addon gefunden!"))
+            }
 
             val meta = AddonMeta(
                 id = addonId,
                 name = customName.ifBlank { "Addon ${installedAddons.size + 1}" },
                 placeCount = placeCount,
                 importedAt = System.currentTimeMillis(),
-                filePath = destFile.absolutePath
+                filePath = destFile.absolutePath,
+                isEnabled = true,
+                fileType = fileExt
             )
 
             val updated = installedAddons + listOf(meta)
@@ -111,6 +139,16 @@ object AddonManager {
             if (file.exists()) file.delete()
             val updated = installedAddons.filterNot { it.id == addonId }
             saveAddonsList(context, updated)
+        }
+    }
+
+    private fun countPlacesInJson(file: File): Int {
+        return try {
+            val jsonStr = file.readText()
+            val jsonArray = JSONArray(jsonStr)
+            jsonArray.length()
+        } catch (e: Exception) {
+            0
         }
     }
 
@@ -135,32 +173,90 @@ object AddonManager {
     fun loadAllAddonPlaces(context: Context): List<PlaceEntity> {
         val allAddonPlaces = mutableListOf<PlaceEntity>()
         for (addon in installedAddons) {
+            if (!addon.isEnabled) continue
             val file = File(addon.filePath)
             if (!file.exists()) continue
-            var db: SQLiteDatabase? = null
-            try {
-                db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-                val cursor = db.rawQuery("SELECT osm_id, name, category, type, rarity, lat, lon FROM places", null)
-                while (cursor.moveToNext()) {
-                    allAddonPlaces.add(
-                        PlaceEntity(
-                            osm_id = cursor.getString(0),
-                            name = cursor.getString(1) ?: "",
-                            category = cursor.getString(2) ?: "Dungeon",
-                            type = cursor.getString(3) ?: "",
-                            rarity = cursor.getString(4) ?: "common",
-                            lat = cursor.getDouble(5),
-                            lon = cursor.getDouble(6)
-                        )
-                    )
+
+            if (addon.fileType == "json") {
+                try {
+                    val jsonStr = file.readText()
+                    val jsonArray = JSONArray(jsonStr)
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val place = PlaceEntity(
+                                osm_id = obj.optString("osm_id", "addon_${addon.id}_$i"),
+                                name = obj.optString("name", "Unbekannter Ort"),
+                                category = obj.optString("category", "Dungeon"),
+                                type = obj.optString("type", "addon"),
+                                rarity = obj.optString("rarity", "common"),
+                                lat = obj.getDouble("lat"),
+                                lon = obj.getDouble("lon")
+                            ).also { p ->
+                                p.description = obj.optString("description").ifBlank { null }
+                                p.lore = obj.optString("lore").ifBlank { null }
+                                p.xpReward = if (obj.has("xpReward")) obj.getInt("xpReward") else null
+                                p.questHint = obj.optString("questHint").ifBlank { null }
+                                p.iconColor = obj.optString("iconColor").ifBlank { null }
+                                p.minZoom = if (obj.has("minZoom")) obj.getDouble("minZoom").toFloat() else null
+                            }
+                            allAddonPlaces.add(place)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-                cursor.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                db?.close()
+            } else {
+                var db: SQLiteDatabase? = null
+                try {
+                    db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                    val cursor = db.rawQuery("SELECT osm_id, name, category, type, rarity, lat, lon FROM places", null)
+                    while (cursor.moveToNext()) {
+                        allAddonPlaces.add(
+                            PlaceEntity(
+                                osm_id = cursor.getString(0),
+                                name = cursor.getString(1) ?: "",
+                                category = cursor.getString(2) ?: "Dungeon",
+                                type = cursor.getString(3) ?: "",
+                                rarity = cursor.getString(4) ?: "common",
+                                lat = cursor.getDouble(5),
+                                lon = cursor.getDouble(6)
+                            )
+                        )
+                    }
+                    cursor.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    db?.close()
+                }
             }
         }
         return allAddonPlaces
+    }
+
+    fun exportPlacesToJson(context: Context, places: List<PlaceEntity>, uri: Uri): Result<Int> {
+        return try {
+            val jsonArray = JSONArray()
+            for (p in places) {
+                val obj = JSONObject().apply {
+                    put("osm_id", p.osm_id)
+                    put("name", p.name)
+                    put("category", p.category)
+                    put("type", p.type)
+                    put("rarity", p.rarity)
+                    put("lat", p.lat)
+                    put("lon", p.lon)
+                }
+                jsonArray.put(obj)
+            }
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                OutputStreamWriter(out, Charsets.UTF_8).use { writer ->
+                    writer.write(jsonArray.toString(2))
+                }
+            } ?: return Result.failure(Exception("Stream konnte nicht geöffnet werden"))
+
+            Result.success(places.size)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

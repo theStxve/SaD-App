@@ -18,4 +18,10 @@ interface RumorDao {
 
     @Query("UPDATE rumors SET isRead = 1")
     suspend fun markAllRead()
+
+    @androidx.room.Delete
+    suspend fun delete(rumor: Rumor)
+
+    @Query("DELETE FROM rumors WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

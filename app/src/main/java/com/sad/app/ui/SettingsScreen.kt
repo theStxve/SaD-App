@@ -465,72 +465,133 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
             Spacer(Modifier.height(20.dp))
         }
 
-        // ── Addons (Dungeon-Packs) ───────────────────────────────────────────
+        // ── Navigationsleiste & Tabs ──────────────────────────────────────────
         item {
-            val installedAddons = com.sad.app.data.AddonManager.installedAddons
+            val tabVisibility = TabVisibilityManager.current
 
             Text(
-                "ADDONS (DUNGEON-PACKS)",
+                "NAVIGATIONSLEISTE & TABS",
                 color = colors.textSecondary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp
             )
-            Spacer(Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    addonPickerLauncher.launch(arrayOf("*/*"))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(8.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.5f))
-            ) {
-                Text("➕ ADDON / DUNGEON-PACK IMPORTIEREN (.db)", color = colors.primary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-            }
-
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Blende ungenutzte Tabs in der Navigationsleiste unten aus (Karte & Optionen bleiben immer sichtbar).",
+                color = colors.textSecondary,
+                fontSize = 11.sp
+            )
             Spacer(Modifier.height(12.dp))
 
-            if (installedAddons.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(colors.surface)
-                        .padding(14.dp),
-                    contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Quests
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Keine Addons installiert.\nImportiere eine places.db Datei aus deiner Region.", 
-                         color = colors.textSecondary, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    installedAddons.forEach { addon ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(colors.surface)
-                                .border(1.dp, colors.primary.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(addon.name, color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("${addon.placeCount} Dungeons • Importiert", color = colors.textSecondary, fontSize = 11.sp)
-                            }
-                            IconButton(
-                                onClick = {
-                                    com.sad.app.data.AddonManager.removeAddon(context, addon.id)
-                                    Toast.makeText(context, "Addon '${addon.name}' entfernt", Toast.LENGTH_SHORT).show()
-                                }
-                            ) {
-                                Text("🗑", fontSize = 16.sp)
-                            }
-                        }
+                    Column {
+                        Text("Quests Tab", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Tägliche & wöchentliche Aufgaben", color = colors.textSecondary, fontSize = 11.sp)
                     }
+                    Switch(
+                        checked = tabVisibility.showQuests,
+                        onCheckedChange = { isChecked ->
+                            TabVisibilityManager.save(context, tabVisibility.copy(showQuests = isChecked))
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.primary,
+                            uncheckedThumbColor = colors.textSecondary,
+                            uncheckedTrackColor = colors.surfaceVariant
+                        )
+                    )
+                }
+
+                Divider(color = colors.surfaceVariant)
+
+                // Gerüchte
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Gerüchte Tab", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("P2P Spieler-Netzwerk & Gerüchte", color = colors.textSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = tabVisibility.showRumors,
+                        onCheckedChange = { isChecked ->
+                            TabVisibilityManager.save(context, tabVisibility.copy(showRumors = isChecked))
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.primary,
+                            uncheckedThumbColor = colors.textSecondary,
+                            uncheckedTrackColor = colors.surfaceVariant
+                        )
+                    )
+                }
+
+                Divider(color = colors.surfaceVariant)
+
+                // Addons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Addon Hub Tab", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Modding, Community-Packs & Exporter", color = colors.textSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = tabVisibility.showAddons,
+                        onCheckedChange = { isChecked ->
+                            TabVisibilityManager.save(context, tabVisibility.copy(showAddons = isChecked))
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.primary,
+                            uncheckedThumbColor = colors.textSecondary,
+                            uncheckedTrackColor = colors.surfaceVariant
+                        )
+                    )
+                }
+
+                Divider(color = colors.surfaceVariant)
+
+                // Erfolge
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Erfolge Tab", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Achievements & Dev-Optionen", color = colors.textSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = tabVisibility.showAchievements,
+                        onCheckedChange = { isChecked ->
+                            TabVisibilityManager.save(context, tabVisibility.copy(showAchievements = isChecked))
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.primary,
+                            uncheckedThumbColor = colors.textSecondary,
+                            uncheckedTrackColor = colors.surfaceVariant
+                        )
+                    )
                 }
             }
 

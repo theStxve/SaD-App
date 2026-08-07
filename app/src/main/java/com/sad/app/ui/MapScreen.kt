@@ -113,7 +113,7 @@ fun calculateEffectiveExploredCenters(
 }
 
 @Composable
-fun MapScreen() {
+fun MapScreen(targetLocation: GeoPoint? = null) {
     val context = LocalContext.current
     val colors = LocalAppColors.current
     val coroutineScope = rememberCoroutineScope()
@@ -356,9 +356,16 @@ fun MapScreen() {
             }
         }
 
+        // Wenn ein Ortungs-Ziel von den Geruechten kommt: Follow Deaktivieren
+        LaunchedEffect(targetLocation) {
+            if (targetLocation != null) {
+                followPlayer = false
+            }
+        }
+
         Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
             if (userLocation != null) {
-                OSMMapView(userLocation!!, places, effectiveExploredCenters, rumors, visitedIds, followPlayer, currentZoom)
+                OSMMapView(userLocation!!, places, effectiveExploredCenters, rumors, visitedIds, followPlayer, currentZoom, targetLocation)
                 
                 // --- HUD UNTEN ---
                 Box(
@@ -506,10 +513,23 @@ fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false): B
 }
 
 @Composable
-fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: List<ExploredPoint>, rumors: List<Rumor>, visitedIds: Set<String>, followPlayer: Boolean = true, currentZoom: Float = 17f) {
+fun OSMMapView(
+    center: GeoPoint,
+    places: List<PlaceEntity>,
+    exploredCenters: List<ExploredPoint>,
+    rumors: List<Rumor>,
+    visitedIds: Set<String>,
+    followPlayer: Boolean = true,
+    currentZoom: Float = 17f,
+    targetLocation: GeoPoint? = null
+) {
     val context = LocalContext.current
     val colors = LocalAppColors.current
+
+    Configuration.getInstance().load(context, context.getSharedPreferences("osm", Context.MODE_PRIVATE))
     
+    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
     // Cache the marker icons to prevent 60fps bitmap recreation during zoom
     val epicIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF00E6"), false) }
     val rareIcon = remember { createNeonMarker(context, Color.parseColor("#FFFFD700"), false) }
@@ -517,11 +537,13 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
     val normalIcon = remember { createNeonMarker(context, Color.parseColor("#FF555555"), false) }
     val rumorIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF8C00"), false) } // Dark Orange für Gerüchte
     val clearedIcon = remember { createNeonMarker(context, Color.parseColor("#FF222222"), false) } // Dunkelgrau für erledigt
-    
-    // OSMDroid Setup MUSS vor der MapView Erstellung passieren!
-    Configuration.getInstance().load(context, context.getSharedPreferences("osm", Context.MODE_PRIVATE))
-    
-    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
+    // Wenn ein Zielort (z.B. aus Geruechten) uebergeben wird, Karte dorthin bewegen
+    LaunchedEffect(targetLocation) {
+        if (targetLocation != null) {
+            mapViewRef?.controller?.animateTo(targetLocation)
+        }
+    }
     
     // Zoom flüssig updaten, ohne die Marker neu zu zeichnen
     LaunchedEffect(currentZoom) {
