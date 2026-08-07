@@ -59,7 +59,38 @@ data class PlayerProfile(
         fun addXP(context: Context, amount: Int) {
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
             val current = prefs.getInt("xp", 0)
-            prefs.edit().putInt("xp", current + amount).apply()
+            prefs.edit().putInt("xp", (current + amount).coerceAtLeast(0)).apply()
+        }
+
+        fun subtractXP(context: Context, amount: Int) {
+            addXP(context, -amount)
+        }
+
+        fun setXP(context: Context, newXP: Int) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            prefs.edit().putInt("xp", newXP.coerceAtLeast(0)).apply()
+        }
+
+        fun setExploredCount(context: Context, count: Int) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            prefs.edit().putInt("explored_count", count.coerceAtLeast(0)).apply()
+        }
+
+        fun subtractExplored(context: Context, amount: Int) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            val current = prefs.getInt("explored_count", 0)
+            setExploredCount(context, current - amount)
+        }
+
+        fun setVisitedDungeons(context: Context, count: Int) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            prefs.edit().putInt("visited_dungeons", count.coerceAtLeast(0)).apply()
+        }
+
+        fun subtractDungeons(context: Context, amount: Int) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            val current = prefs.getInt("visited_dungeons", 0)
+            setVisitedDungeons(context, current - amount)
         }
 
         fun incrementExplored(context: Context) {

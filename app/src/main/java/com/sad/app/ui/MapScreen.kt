@@ -65,6 +65,53 @@ val CyberpunkBackground = androidx.compose.ui.graphics.Color(0xFF0F0F1A)
 val CyberpunkNeonCyan = androidx.compose.ui.graphics.Color(0xFF00F3FF)
 val CyberpunkNeonPink = androidx.compose.ui.graphics.Color(0xFFFF00E6)
 
+fun calculateEffectiveExploredCenters(
+    rawCenters: List<ExploredPoint>,
+    forcePrecision: Boolean,
+    precisionRadius: Double = 20.0,
+    currentZoom: Float = 17f
+): List<ExploredPoint> {
+    if (rawCenters.isEmpty() || !forcePrecision) return rawCenters
+
+    // LOD: Bei niedrigem Zoom keine teure Interpolation — Originalpunkte reichen
+    // zoom < 13: Originalpunkte mit etwas größerem Radius zurückgeben (viel schneller)
+    // zoom 13-15: Jeden 2. Schritt interpolieren
+    // zoom >= 15: Volle Interpolation (8m Schritte)
+    val (step, sampleEvery) = when {
+        currentZoom < 13f -> return rawCenters.map { it.copy(radiusMeters = precisionRadius) }
+        currentZoom < 15f -> Pair(16.0, 1)
+        else              -> Pair(8.0, 1)
+    }
+
+    val result = ArrayList<ExploredPoint>(rawCenters.size * 5)
+    var prev: ExploredPoint? = null
+    val results = FloatArray(1)
+
+    for (curr in rawCenters) {
+        val p = prev
+        if (p != null) {
+            Location.distanceBetween(
+                p.geoPoint.latitude, p.geoPoint.longitude,
+                curr.geoPoint.latitude, curr.geoPoint.longitude,
+                results
+            )
+            val dist = results[0].toDouble()
+            if (dist > step && dist <= 350.0) {
+                val stepsCount = kotlin.math.ceil(dist / step).toInt()
+                for (i in 1 until stepsCount) {
+                    val frac = i.toDouble() / stepsCount
+                    val iLat = p.geoPoint.latitude + frac * (curr.geoPoint.latitude - p.geoPoint.latitude)
+                    val iLon = p.geoPoint.longitude + frac * (curr.geoPoint.longitude - p.geoPoint.longitude)
+                    result.add(ExploredPoint(GeoPoint(iLat, iLon), radiusMeters = precisionRadius))
+                }
+            }
+        }
+        result.add(ExploredPoint(curr.geoPoint, radiusMeters = precisionRadius))
+        prev = curr
+    }
+    return result
+}
+
 @Composable
 fun MapScreen() {
     val context = LocalContext.current
@@ -111,19 +158,69 @@ fun MapScreen() {
         val visitedDungeons by gameDb.visitedDungeonDao().getAllFlow().collectAsState(initial = emptyList())
         val visitedIds = remember(visitedDungeons) { visitedDungeons.map { it.osm_id }.toSet() }
 
+        val mapSettings = MapSettingsManager.current
+
+        val effectiveExploredCenters = remember(exploredCenters, mapSettings.forcePrecisionPaths, mapSettings.precisionModeEnabled, currentZoom) {
+            calculateEffectiveExploredCenters(
+                exploredCenters,
+                mapSettings.forcePrecisionPaths,
+                20.0,
+                currentZoom
+            )
+        }
+
         // 1. Beim Start: Alle früher erkundeten Bereiche aus DB laden
         LaunchedEffect(Unit) {
             val saved = withContext(Dispatchers.IO) { gameDb.exploredAreaDao().getAll() }
             exploredCenters = saved.map { ExploredPoint(GeoPoint(it.lat, it.lon), radiusMeters = it.radius) }
         }
 
-        // 2. Initiales Laden entfernt: Warten jetzt auf echtes GPS-Signal
-
         // Caching für Addon Places um wiederholtes IO-Lesen bei jedem GPS-Tick zu vermeiden
         var cachedAddonPlaces by remember { mutableStateOf<List<PlaceEntity>>(emptyList()) }
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
                 cachedAddonPlaces = com.sad.app.data.AddonManager.loadAllAddonPlaces(context)
+            }
+        }
+
+        suspend fun loadPlacesForLocation(
+            newGeoPoint: GeoPoint,
+            vIds: Set<String>,
+            showGlobalVisited: Boolean,
+            addonPlaces: List<PlaceEntity>
+        ): List<PlaceEntity> {
+            val rawPlaces = db.placeDao().getPlacesInArea(
+                newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
+                newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
+            )
+            val results = FloatArray(1)
+            val mainFiltered = rawPlaces.filter { place ->
+                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
+                results[0] <= 1000f
+            }
+            val addonFiltered = addonPlaces.filter { place ->
+                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
+                results[0] <= 1000f
+            }
+
+            val globalVisitedPlaces = if (showGlobalVisited && vIds.isNotEmpty()) {
+                val mainVisited = db.placeDao().getPlacesByIds(vIds.toList())
+                val addonVisited = addonPlaces.filter { it.osm_id in vIds }
+                mainVisited + addonVisited
+            } else {
+                emptyList()
+            }
+
+            return (mainFiltered + addonFiltered + globalVisitedPlaces).distinctBy { it.osm_id }
+        }
+
+        // POIs auch bei Einstellungs- oder Visited-Änderungen nachladen
+        LaunchedEffect(userLocation, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonPlaces) {
+            userLocation?.let { loc ->
+                val newPlaces = withContext(Dispatchers.IO) {
+                    loadPlacesForLocation(loc, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonPlaces)
+                }
+                places = newPlaces
             }
         }
 
@@ -151,20 +248,12 @@ fun MapScreen() {
 
                         // POIs nachladen – MIT Offset, damit Dev-Modus korrekt funktioniert
                         coroutineScope.launch(Dispatchers.IO) {
-                            val rawPlaces = db.placeDao().getPlacesInArea(
-                                newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
-                                newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
+                            val newPlaces = loadPlacesForLocation(
+                                newGeoPoint,
+                                visitedIds,
+                                MapSettingsManager.current.showVisitedDungeonsGlobally,
+                                cachedAddonPlaces
                             )
-                            val results = FloatArray(1)
-                            val mainFiltered = rawPlaces.filter { place ->
-                                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                                results[0] <= 1000f
-                            }
-                            val addonFiltered = cachedAddonPlaces.filter { place ->
-                                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                                results[0] <= 1000f
-                            }
-                            val newPlaces = mainFiltered + addonFiltered
                             withContext(Dispatchers.Main) {
                                 places = newPlaces
                             }
@@ -269,7 +358,7 @@ fun MapScreen() {
 
         Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
             if (userLocation != null) {
-                OSMMapView(userLocation!!, places, exploredCenters, rumors, visitedIds, followPlayer, currentZoom)
+                OSMMapView(userLocation!!, places, effectiveExploredCenters, rumors, visitedIds, followPlayer, currentZoom)
                 
                 // --- HUD UNTEN ---
                 Box(
@@ -461,8 +550,8 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
         }
     }
 
-    // Nur wenn places, rumors, exploredCenters oder visitedIds sich ändern, updaten wir die Overlays
-    LaunchedEffect(places, exploredCenters, rumors, visitedIds) {
+    // Nur wenn places, rumors, exploredCenters, visitedIds oder Zoom sich ändern, updaten wir die Overlays
+    LaunchedEffect(places, exploredCenters, rumors, visitedIds, currentZoom) {
         val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
         val isGodsEye = prefs.getBoolean("dev_gods_eye", false)
 
@@ -494,9 +583,23 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
                 }
             }
             
+            // LOD: Bei sehr niedrigem Zoom (Übersicht) nur wichtige Marker zeichnen
+            // Nutzt currentZoom-Parameter (zuverlässig), nicht mapView.zoomLevelDouble (kann 0 sein beim Init)
+            val mapZoom = currentZoom.toDouble()
             places.forEach { place ->
                 val isVisited = place.osm_id in visitedIds
-                
+
+                // Zoom-basiertes Marker-Filtering – nur bei extremem Zoom-Out aktiv:
+                // zoom < 10: nur Epic und Rare sichtbar
+                // zoom 10-12: Epic, Rare, Uncommon (kein Normal/Visited-Spam)
+                // zoom >= 12: ALLE Marker sichtbar (normaler Spielbereich)
+                val skipMarker = when {
+                    mapZoom < 10.0 -> place.rarity != "epic" && place.rarity != "rare"
+                    mapZoom < 12.0 -> place.rarity == "common" || place.rarity == "" || (isVisited && place.rarity !in listOf("epic", "rare", "uncommon"))
+                    else -> false
+                }
+                if (skipMarker) return@forEach
+
                 val cachedIcon = when {
                     isVisited -> clearedIcon
                     place.rarity == "epic" -> epicIcon
@@ -556,9 +659,10 @@ fun OSMMapView(center: GeoPoint, places: List<PlaceEntity>, exploredCenters: Lis
         }
     }
 
-    // Zoom-Stufe merken bei Änderung
+    // Zoom-Stufe merken bei Änderung – debounced (300ms) damit nicht jeder Frame gespeichert wird
     LaunchedEffect(currentZoom) {
         if (currentZoom != mapSettings.rememberedZoom) {
+            kotlinx.coroutines.delay(300L)
             MapSettingsManager.save(context, mapSettings.copy(rememberedZoom = currentZoom))
         }
     }

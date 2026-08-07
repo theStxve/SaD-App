@@ -7,7 +7,7 @@ import androidx.room.Query
 
 @Dao
 interface ExploredAreaDao {
-    @Query("SELECT * FROM explored_areas")
+    @Query("SELECT * FROM explored_areas ORDER BY id ASC")
     suspend fun getAll(): List<ExploredArea>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -20,6 +20,9 @@ interface ExploredAreaDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(areas: List<ExploredArea>)
+
+    @Query("UPDATE explored_areas SET radius = :newRadius")
+    suspend fun updateAllRadius(newRadius: Double)
 
     @Query("DELETE FROM explored_areas")
     suspend fun deleteAll()

@@ -14,7 +14,9 @@ data class MapSettings(
     val fogOpacity: Float = 0.85f,           // 0.2f .. 1.0f
     val precisionModeEnabled: Boolean = false, // 20m Radius (Präzisionsmode) vs 150m Standard
     val connectionModeEnabled: Boolean = false, // Aufdecken der Verbindungslinie zwischen Punkten
-    val rememberedZoom: Float = 17f          // Gespeicherte Zoom-Stufe
+    val rememberedZoom: Float = 17f,          // Gespeicherte Zoom-Stufe
+    val showVisitedDungeonsGlobally: Boolean = false, // Erkundete (graue) Dungeons weltweit auf Karte anzeigen
+    val forcePrecisionPaths: Boolean = false  // Alle Pfade als Präzisionspfade rendern und Lücken glätten
 ) {
     val visionRadiusMeters: Double
         get() = if (precisionModeEnabled) 20.0 else 150.0
@@ -40,6 +42,8 @@ object MapSettingsManager {
             .putBoolean("precisionModeEnabled", settings.precisionModeEnabled)
             .putBoolean("connectionModeEnabled", settings.connectionModeEnabled)
             .putFloat("rememberedZoom", settings.rememberedZoom)
+            .putBoolean("showVisitedDungeonsGlobally", settings.showVisitedDungeonsGlobally)
+            .putBoolean("forcePrecisionPaths", settings.forcePrecisionPaths)
             .apply()
         current = settings  // Reaktives Update → MapScreen sieht es sofort
     }
@@ -53,7 +57,9 @@ object MapSettingsManager {
             fogOpacity = prefs.getFloat("fogOpacity", 0.85f),
             precisionModeEnabled = prefs.getBoolean("precisionModeEnabled", false),
             connectionModeEnabled = prefs.getBoolean("connectionModeEnabled", false),
-            rememberedZoom = prefs.getFloat("rememberedZoom", 17f)
+            rememberedZoom = prefs.getFloat("rememberedZoom", 17f),
+            showVisitedDungeonsGlobally = prefs.getBoolean("showVisitedDungeonsGlobally", false),
+            forcePrecisionPaths = prefs.getBoolean("forcePrecisionPaths", false)
         )
     }
 

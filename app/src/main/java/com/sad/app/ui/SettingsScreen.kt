@@ -223,8 +223,8 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
 
         // ── Map Customization ───────────────────────────────────────────────
         item {
-            // Direkt aus dem reaktiven Singleton – initialer Wert stimmt immer
-            var mapSettings by remember { mutableStateOf(MapSettingsManager.current) }
+            // Reaktives State das sich bei MapSettingsManager.current Änderungen sofort aktualisiert
+            var mapSettings by remember(MapSettingsManager.current) { mutableStateOf(MapSettingsManager.current) }
 
             Text(
                 "KARTEN-ANPASSUNG",
@@ -382,6 +382,60 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                     checked = mapSettings.connectionModeEnabled,
                     onCheckedChange = { newVal ->
                         val updated = mapSettings.copy(connectionModeEnabled = newVal)
+                        mapSettings = updated
+                        MapSettingsManager.save(context, updated)
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = colors.accent, checkedTrackColor = colors.accent.copy(alpha = 0.3f))
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Besuchte Dungeons global anzeigen Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Besuchte Dungeons immer anzeigen", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Zeigt bereits erkundete (graue) Dungeons weltweit auf der Karte an, egal wie weit entfernt", color = colors.textSecondary, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = mapSettings.showVisitedDungeonsGlobally,
+                    onCheckedChange = { newVal ->
+                        val updated = mapSettings.copy(showVisitedDungeonsGlobally = newVal)
+                        mapSettings = updated
+                        MapSettingsManager.save(context, updated)
+                    },
+                    colors = SwitchDefaults.colors(checkedThumbColor = colors.primary, checkedTrackColor = colors.primary.copy(alpha = 0.3f))
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Alle Wege als Präzisionspfade Toggle (mit Lückenfüllung)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text("Alle Wege als Präzisionspfade", color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Konvertiert die Darstellung aller bisherigen Wege in schmale Präzisionspfade & füllt Lücken sauber auf", color = colors.textSecondary, fontSize = 11.sp)
+                }
+                Switch(
+                    checked = mapSettings.forcePrecisionPaths,
+                    onCheckedChange = { newVal ->
+                        val updated = mapSettings.copy(forcePrecisionPaths = newVal)
                         mapSettings = updated
                         MapSettingsManager.save(context, updated)
                     },

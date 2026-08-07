@@ -327,45 +327,143 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // --- SECTION: Ressourcen ---
-                    DevSectionTitle("Ressourcen")
+                    // --- SECTION: Ressourcen & Stats (Hinzufügen / Abziehen / Reset) ---
+                    DevSectionTitle("Ressourcen & Stats (Hinzufügen / Abziehen)")
                     
-                    var xpInput by remember { mutableStateOf("10000") }
-                    var areaInput by remember { mutableStateOf("100") }
+                    var xpInput by remember { mutableStateOf("1000") }
+                    var areaInput by remember { mutableStateOf("10") }
+                    var dungeonInput by remember { mutableStateOf("5") }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DevTextField(value = xpInput, label = "XP hinzufügen", color = cyan) { xpInput = it }
-                        Button(
-                            onClick = { 
-                                val amount = xpInput.toIntOrNull() ?: 0
-                                PlayerProfile.addXP(context, amount)
-                                internalRefreshTrigger++
-                                onRefreshRequested()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = cyan.copy(alpha = 0.1f)),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text("XP Injektion", color = cyan) }
+                    // XP Anpassung
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DevTextField(value = xpInput, label = "XP Menge", color = cyan) { xpInput = it }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = { 
+                                    val amount = xpInput.toIntOrNull() ?: 0
+                                    PlayerProfile.addXP(context, amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = cyan.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("+ XP", color = cyan, fontWeight = FontWeight.Bold) }
+
+                            Button(
+                                onClick = { 
+                                    val amount = xpInput.toIntOrNull() ?: 0
+                                    PlayerProfile.subtractXP(context, amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = pink.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("- XP", color = pink, fontWeight = FontWeight.Bold) }
+                        }
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DevTextField(value = areaInput, label = "Gebiete hinzufügen", color = gold) { areaInput = it }
+                    // Sektoren / Gebiete Anpassung
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DevTextField(value = areaInput, label = "Sektoren Menge", color = gold) { areaInput = it }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = { 
+                                    val amount = areaInput.toIntOrNull() ?: 0
+                                    val current = PlayerProfile.load(context).exploredCount
+                                    PlayerProfile.setExploredCount(context, current + amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = gold.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("+ Sektoren", color = gold, fontWeight = FontWeight.Bold) }
+
+                            Button(
+                                onClick = { 
+                                    val amount = areaInput.toIntOrNull() ?: 0
+                                    PlayerProfile.subtractExplored(context, amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = pink.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("- Sektoren", color = pink, fontWeight = FontWeight.Bold) }
+                        }
+                    }
+
+                    // Dungeons Zähler Anpassung
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        DevTextField(value = dungeonInput, label = "Dungeon Zähler Menge", color = cyan) { dungeonInput = it }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            Button(
+                                onClick = { 
+                                    val amount = dungeonInput.toIntOrNull() ?: 0
+                                    val current = PlayerProfile.load(context).visitedDungeons
+                                    PlayerProfile.setVisitedDungeons(context, current + amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = cyan.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("+ Dungeons", color = cyan, fontWeight = FontWeight.Bold) }
+
+                            Button(
+                                onClick = { 
+                                    val amount = dungeonInput.toIntOrNull() ?: 0
+                                    PlayerProfile.subtractDungeons(context, amount)
+                                    internalRefreshTrigger++
+                                    onRefreshRequested()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = pink.copy(alpha = 0.2f)),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("- Dungeons", color = pink, fontWeight = FontWeight.Bold) }
+                        }
+                    }
+
+                    // Spezial-Aktionen: Besuchte DB-Dungeons resetten & DB Präzisionskonvertierung
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Button(
                             onClick = { 
-                                val amount = areaInput.toIntOrNull() ?: 0
                                 coroutineScope.launch(Dispatchers.IO) {
-                                    val prefs = context.getSharedPreferences("player_profile", android.content.Context.MODE_PRIVATE)
-                                    prefs.edit().putInt("explored_count", prefs.getInt("explored_count", 0) + amount).apply()
+                                    val gDb = com.sad.app.data.GameDatabase.getDatabase(context)
+                                    gDb.visitedDungeonDao().deleteAll()
+                                    PlayerProfile.setVisitedDungeons(context, 0)
                                     withContext(Dispatchers.Main) {
                                         internalRefreshTrigger++
                                         onRefreshRequested()
+                                        android.widget.Toast.makeText(context, "Besuchte Dungeons in DB zurückgesetzt", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = gold.copy(alpha = 0.1f)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, pink.copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp)
-                        ) { Text("Gebiete synchronisieren", color = gold) }
+                        ) { Text("Besuchte Dungeons (DB) zurücksetzen", color = pink, fontSize = 11.sp) }
+
+                        Button(
+                            onClick = { 
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val gDb = com.sad.app.data.GameDatabase.getDatabase(context)
+                                    gDb.exploredAreaDao().updateAllRadius(20.0)
+                                    withContext(Dispatchers.Main) {
+                                        internalRefreshTrigger++
+                                        onRefreshRequested()
+                                        android.widget.Toast.makeText(context, "Alle DB-Punkte auf 20m Präzision gesetzt", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, cyan.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) { Text("Alle DB-Punkte auf 20m Präzision setzen", color = cyan, fontSize = 11.sp) }
                     }
 
                     // --- SECTION: Cheats ---

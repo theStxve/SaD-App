@@ -12,4 +12,7 @@ interface PlaceDao {
     
     @Query("SELECT * FROM places WHERE osm_id = :id")
     suspend fun getPlaceById(id: String): PlaceEntity?
+
+    @Query("SELECT * FROM places WHERE osm_id IN (:ids)")
+    suspend fun getPlacesByIds(ids: List<String>): List<PlaceEntity>
 }

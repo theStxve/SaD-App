@@ -12,10 +12,11 @@ data class ExploredPoint(
 )
 
 /**
- * Fog of War Overlay – optimiert:
+ * Fog of War Overlay – stark optimiert:
+ * - Zoom-LOD: Bei niedrigem Zoom werden Punkte gruppiert / übersprungen
  * - Viewport-Culling: Nur Punkte die aktuell auf dem Bildschirm liegen werden gezeichnet
- * - Kein Neuzeichnen wenn sich die Liste nicht geändert hat (cachedBoundingBox + cachedCount)
- * - Individuelle Radien pro Punkt (Präzisionsmodus)
+ * - Kein teures saveLayer bei sehr niedrigem Zoom (nur Rechteck-Nebel)
+ * - Reduzierter Sampling-Faktor bei niedrigem Zoom
  */
 class FogOfWarOverlay(
     var exploredAreas: List<ExploredPoint>,
@@ -33,7 +34,7 @@ class FogOfWarOverlay(
 
     private val clearPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
-        isAntiAlias = true
+        isAntiAlias = false  // Bei clipping nicht nötig, spart CPU
     }
 
     private val playerEdgePaint = Paint().apply {
@@ -43,13 +44,29 @@ class FogOfWarOverlay(
         maskFilter = BlurMaskFilter(10f, BlurMaskFilter.Blur.OUTER)
     }
 
-    // Viewport-Culling: aktuell sichtbare Bounding Box cachen
-    private var lastBoundingBox: BoundingBox? = null
+    // Cached radius Pixel-Berechnung (nur invalidieren wenn sich Zoom ändert)
     private var lastZoom: Double = -1.0
+    private var cachedPixelsPerMeter: Float = 1f
 
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
         if (shadow) return
         if (canvas.width <= 0 || canvas.height <= 0) return
+
+        val zoom = mapView.zoomLevelDouble
+
+        // === LOD: Sehr niedriger Zoom (< 11) ===
+        // Bei diesem Zoom sind Kreise sowieso kaum sichtbar -> einfach nur Nebelrechteck ohne Layer
+        if (zoom < 11.0) {
+            val alphaInt = (fogOpacity.coerceIn(0f, 1f) * 255 * 0.6f).toInt()
+            fogPaint.color = Color.argb(
+                alphaInt,
+                Color.red(fogColor),
+                Color.green(fogColor),
+                Color.blue(fogColor)
+            )
+            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), fogPaint)
+            return
+        }
 
         val saveCount = canvas.saveLayer(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), null)
 
@@ -72,28 +89,58 @@ class FogOfWarOverlay(
         val visLonMax = bb.lonEast + lonPad
         val visLonMin = bb.lonWest - lonPad
 
-        // 3. Nur sichtbare Punkte zeichnen (Viewport-Culling)
-        for (ep in exploredAreas) {
+        // LOD-Parameter: Sampling-Rate und effektiver Radius je nach Zoom
+        // zoom >= 15: alle Punkte, originaler Radius
+        // zoom 13-15: jeden 2. Punkt, etwas größerer Radius
+        // zoom 11-13: jeden 4. Punkt, deutlich größerer Radius (bessere Abdeckung bei weniger Punkten)
+        val (sampleStep, radiusMultiplier) = when {
+            zoom >= 15.0 -> Pair(1, 1.0)
+            zoom >= 13.0 -> Pair(2, 1.6)
+            else         -> Pair(4, 2.5)  // zoom 11-13
+        }
+
+        // Pixel-pro-Meter cachen (nur bei Zoom-Änderung neu berechnen)
+        if (kotlin.math.abs(zoom - lastZoom) > 0.05) {
+            lastZoom = zoom
+            val center = mapView.mapCenter as GeoPoint
+            val centerPixel = mapView.projection.toPixels(center, null)
+            val offsetDeg = 100.0 / 111_320.0
+            val northPoint = GeoPoint(center.latitude + offsetDeg, center.longitude)
+            val northPixel = mapView.projection.toPixels(northPoint, null)
+            val pxFor100m = Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(1f)
+            cachedPixelsPerMeter = pxFor100m / 100f
+        }
+
+        // 3. Nur sichtbare Punkte zeichnen (Viewport-Culling + LOD-Sampling)
+        val areas = exploredAreas
+        var i = 0
+        val size = areas.size
+        while (i < size) {
+            val ep = areas[i]
+            i += sampleStep
+
             val lat = ep.geoPoint.latitude
             val lon = ep.geoPoint.longitude
 
-            // Grobes Culling: Punkt außerhalb des erweiterten Viewports → überspringen
-            // Wir nutzen Grad-Näherung für den Radius (1m ≈ 0.000009°)
-            val radiusDeg = ep.radiusMeters / 111_000.0
+            // Effektiver Radius mit LOD-Multiplikator
+            val effectiveRadius = ep.radiusMeters * radiusMultiplier
+            val radiusDeg = effectiveRadius / 111_000.0
+
+            // Viewport-Culling
             if (lat + radiusDeg < visLatMin || lat - radiusDeg > visLatMax ||
                 lon + radiusDeg < visLonMin || lon - radiusDeg > visLonMax) {
                 continue
             }
 
             val point = mapView.projection.toPixels(ep.geoPoint, null)
-            val radiusPx = calculateRadiusPx(mapView, ep.radiusMeters)
+            val radiusPx = (ep.radiusMeters * radiusMultiplier * cachedPixelsPerMeter).toFloat().coerceAtLeast(6f)
             canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), radiusPx, clearPaint)
         }
 
         // 4. Aktuelle Spielerposition + leuchtender Rand
         currentLocation?.let { current ->
             val point = mapView.projection.toPixels(current, null)
-            val currentRadiusPx = calculateRadiusPx(mapView, visionRadiusMeters)
+            val currentRadiusPx = (visionRadiusMeters * cachedPixelsPerMeter).toFloat().coerceAtLeast(6f)
             canvas.drawCircle(point.x.toFloat(), point.y.toFloat(), currentRadiusPx, clearPaint)
 
             playerEdgePaint.color = Color.argb(220, Color.red(themeColor), Color.green(themeColor), Color.blue(themeColor))
@@ -101,14 +148,5 @@ class FogOfWarOverlay(
         }
 
         canvas.restoreToCount(saveCount)
-    }
-
-    private fun calculateRadiusPx(mapView: MapView, radiusMeters: Double): Float {
-        val center = mapView.mapCenter as GeoPoint
-        val centerPixel = mapView.projection.toPixels(center, null)
-        val offsetDeg = radiusMeters / 111_320.0
-        val northPoint = GeoPoint(center.latitude + offsetDeg, center.longitude)
-        val northPixel = mapView.projection.toPixels(northPoint, null)
-        return Math.abs(centerPixel.y - northPixel.y).toFloat().coerceAtLeast(6f)
     }
 }
