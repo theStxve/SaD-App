@@ -12,7 +12,10 @@
 - **Aktiver Radar:** Tracke deinen Standort in Echtzeit und entdecke verborgene Dungeons in deiner Nähe.
 - **Fog of War:** Die Karte ist in Dunkelheit gehüllt. Nur dort, wo du physisch warst, wird die Welt dauerhaft enthüllt.
 - **Dungeon-System:** Entdecke "Common", "Rare" und "Epic" Dungeons basierend auf realen OpenStreetMap-Daten.
-- **P2P-Netzwerk (Gerüchte):** Triff andere Spieler in der echten Welt und tausche automatisch verschlüsselte Gerüchte über Fundorte via Google Nearby aus – ganz ohne zentralen Server.
+- **P2P-Netzwerk (Gerüchte):** Triff andere Spieler in der echten Welt und tausche automatisch verschlüsselte Gerüchte über Fundorte via Google Nearby aus – mit "Auf Karte orten" und Löschen-Funktion.
+- **Addon Hub & KI-Modding:** Eigener Tab für Community-Dungeon-Packs (JSON & DB), inklusive integriertem Modding-Guide und KI-Master-Prompt per Knopfdruck für ChatGPT/Claude/Gemini.
+- **Custom Addon Styling:** Eigene Markerfarben (`iconColor`), Zoom-Sichtbarkeitsgrenzen (`minZoom`), Story-Lore, Quests und benutzerdefinierte XP per JSON.
+- **App-Themes:** 4 visuelle Modi (Legacy Cyberpunk, Light, Inferno, Matrix) mit voller Farb-Anpassung aller Screens.
 - **Achievement-Protokoll:** Sammle Erfolge für nächtliche Erkundungen, das Teilen deines Fortschritts oder das Hacken des Systems.
 - **Offline Modus:** Zur Erstbestimmung der Position beim Start der App wird Internet empfohlen, abseits davon läuft die App ohne Netz.
 - **Level System:** Levelaufstiege mit dem Sammeln von XP und Freischalten von neuen Profiltiteln durchs Spielen.
@@ -20,37 +23,29 @@
 
 ---
 
-## Settings-Tab
+## Addon Hub & Community-Modding
 
-Ab Version 1.0.4 gibt es einen Einstellungs-Tab mit voller Themes-, Karten- und Profilverwaltung.
+SAD besitzt einen eigenen **Addon Hub Tab** zur einfachen Verwaltung und Erstellung eigener Dungeon-Packs:
 
-### Spielerprofil & Visuelles Teilen
-- **Operative-Name** – Eigenen Spielernamen festlegen, der auf generierten Profilkarten und Berichten verwendet wird
-- **Visuelles Karten-Sharing** – Generiere hochauflösende Profilgrafiken (ID-Karte & Stats-Panel) mit 5 auswählbaren Farbschemata zum Teilen via Messenger/Social Media
+- **JSON & DB Import:** Unterstützt sowohl `.json` Addon-Packs als auch `.db` Datenbank-Dateien.
+- **Pack-Verwaltung:** Einzelne Packs per Toggle aktivieren/deaktivieren oder löschen.
+- **Creator Exporter:** Alle in der App entdeckten Dungeons als wiederverwendbares JSON-Addon für Freunde exportieren.
+- **Interaktiver Modding Guide:** Einklappbare Sektionen erklären Pflichtfelder, Raritäten, Lore/Story, Gameplay-Attribute und Best Practices.
+- **KI-Master-Prompt Button:** Kopiert per Knopfdruck einen vollständigen Prompt in die Zwischenablage. KI-Tools wie ChatGPT, Claude oder Gemini können so sofort funktionierende JSON-Packs für jede beliebige Stadt generieren.
+- **Erweiterte Addon-Attribute:**
+  - `iconColor`: Hex-Farbe für den Kartenmarker (z.B. `#FF8C00`)
+  - `minZoom`: Erst ab diesem Zoom-Level sichtbar (z.B. `14.0`)
+  - `description`, `lore`, `questHint`, `xpReward`
 
-### Karten-Anpassung & Erkundung
-Die Kartenanzeige lässt sich unabhängig vom Theme konfigurieren:
+---
 
-- **Dynamischer Präzisionsmodus** – Speichert den individuellen Aufdeckradius (20m) pro aufgedecktem Punkt. Früher erkundete Bereiche behalten ihre ursprünglichen Kreise, während neu gelaufene Spuren präzise aufgezeichnet werden (Toggle)
-- **Verbindungsmodus** – Deckt die direkte Linie zwischen gemessenen GPS-Punkten auf (Toggle)
-- **Dark-Mode Invertierung** – Karte hell/dunkel umkehren (Toggle)
-- **Kontrast & Helligkeit** – Stärke der Straßen- und Gebäudehervorhebung
-- **Nebel-Deckkraft** – Transparenz des Fog-of-War-Overlays (20% – 100%)
+## Settings & Personalisierung
 
-### Addons (Dungeon-Packs)
-- Importiere eigene `.db`-Dateien aus anderen Städten/Regionen als Addon
-- Werden nahtlos in die Hauptkarte integriert und können einzeln verwaltet/gelöscht werden
-
-- **Reset** – Alle Kartenwerte auf Standard zurücksetzen
-
-Alle Werte werden persistent gespeichert und sofort auf die Karte angewendet, ohne Neustart.
-
-### Datensicherung
-- **Exportieren:** Spielstand (XP, Level, Dungeons, erkundete Sektoren, Achievements) als `.json`-Datei sichern
-- **Importieren:** Gespeicherten Stand aus einer `.json`-Datei wiederherstellen
-
-### Teilen
-Spielfortschritt als formatierten Text-Log über die Android-Share-Funktion teilen.
+- **Design-Themes:** Auswählbar zwischen *Legacy*, *Light*, *Inferno* und *Matrix* – alle Farben und Kartenelemente passen sich nahtlos an.
+- **Tab-Sichtbarkeit:** Ausblenden/Einblenden einzelner Bottom-Bar-Tabs (Quests, Gerüchte, Addon Hub, Erfolge).
+- **Operative-Profilkarte:** Visuelles Cyberpunk-Sharing mit Tech-Corner Brackets, Glow-Effekten, Orbit-Ringen und "STATUS ONLINE"-Badge.
+- **Karten-Anpassung:** Präzisionsmodus (20m-Radius), Verbindungsmodus (GPS-Linien), Nebel-Deckkraft, Kontrast/Helligkeit und Dark-Mode-Invertierung.
+- **Datensicherung:** Export & Import des kompletten Spielstands als `.json`.
 
 ---
 
@@ -58,7 +53,7 @@ Spielfortschritt als formatierten Text-Log über die Android-Share-Funktion teil
 
 - **Sprache:** Kotlin
 - **UI:** Jetpack Compose
-- **Datenbank:** Room SQLite (Lokale Persistenz)
+- **Datenbank:** Room SQLite (Lokale Persistency & RAM-Caching)
 - **Karten:** OSMDroid (OpenStreetMap Integration)
 - **Kommunikation:** Google Nearby Connections (Dezentraler Datenabgleich)
 - **Hintergrund-Logik:** Android Foreground Services für dauerhaftes Tracking und Aufdecken der Karte
@@ -97,52 +92,22 @@ pip install osmium
 python scripts/process_map.py
 ```
 
-**Was passiert dabei?**
-- **Extraktion:** Ruinen, Burgen, Bunker, verlassene Orte, alte Bahnstrecken, Cafés, Museen v.v.m. werden aus der OSM-Karte gefiltered.
-- **Rarity-Zuweisung:** Jeder Ort bekommt automatisch eine Seltenheitsstufe (`uncommon` / `rare` / `epic`).
-- **Datenbank:** `app/src/main/assets/places.db` wird direkt erstellt – kein manueller Kopiervorgang nötig.
-
 ---
 
 ## Eigene Addons (Dungeon-Packs) erstellen
 
-Du kannst für beliebige Städte, Bundesländer oder Länder eigene Dungeon-Packs erstellen und in deine App laden oder mit Freunden teilen.
+Du kannst Addons entweder per **JSON** (empfohlen & KI-gestützt) oder per **.db Pipeline** erstellen.
 
-### 1. Voraussetzungen
-- [Python 3.9+](https://www.python.org/downloads/) auf dem PC installiert ("Add Python to PATH" beim Setup ankreuzen).
+### Methode A: JSON-Addon (Empfohlen & KI-gestützt)
+1. Öffne die SAD-App und navigiere zum **Addon Hub** Tab.
+2. Tippe im Modding Guide auf **KI-PROMPT KOPIEREN**.
+3. Füge den Prompt in ChatGPT, Claude oder Gemini ein und gib deine Wunschstadt an.
+4. Speichere das generierte JSON als Datei ab und tippe im Addon Hub auf **IMPORTIEREN**.
 
-### 2. Kartenmaterial herunterladen
-1. Gehe auf [Geofabrik Download Server](https://download.geofabrik.de/).
-2. Navigiere zu deiner Wunschregion (z.B. *Europe → Germany → Berlin* oder *Japan*).
-3. Lade die Datei mit der Endung `.osm.pbf` herunter (z.B. `berlin-latest.osm.pbf`).
-4. Speichere die Datei im `scripts/`-Ordner des Projekts.
-
-### 3. Addon-Datenbank schmieden
-
-#### Windows (Eingabeaufforderung / CMD)
-Öffne die Eingabeaufforderung im Projektordner und führe aus:
-```cmd
-scripts\process_map.bat scripts\berlin-latest.osm.pbf scripts\berlin_pack.db
-```
-
-#### Linux / macOS / Terminal
-```bash
-pip install osmium
-python scripts/process_map.py scripts/berlin-latest.osm.pbf scripts/berlin_pack.db
-```
-
-Das Skript erzeugt die fertige Addon-Datei `scripts/berlin_pack.db`.
-
-### 4. Auf das Smartphone übertragen
-Übertrage die erzeugte `.db`-Datei auf dein Smartphone (z.B. per USB-Kabel, Google Drive, Telegram oder Discord).
-
-### 5. In der App importieren
-1. Öffne **SAD** auf deinem Smartphone.
-2. Gehe in den **Optionen-Tab** (Zahnrad-Icon).
-3. Scrolle zum Bereich **ADDONS (DUNGEON-PACKS)**.
-4. Tippe auf **ADDON / DUNGEON-PACK IMPORTIEREN (.db)**.
-5. Wähle die übertragene `.db`-Datei aus und vergib einen Namen (z.B. *"Berlin Dungeons"*).
-6. Fertig! Die neuen Orte sind sofort auf deiner Karte aktiv.
+### Methode B: Python .db Pipeline
+1. Lade eine `.osm.pbf` von [Geofabrik](https://download.geofabrik.de/) herunter.
+2. Führe aus: `python scripts/process_map.py scripts/deine_region.osm.pbf scripts/pack.db`
+3. Übertrage `pack.db` auf dein Smartphone und importiere sie im Addon Hub.
 
 ---
 
@@ -156,3 +121,4 @@ Das Skript erzeugt die fertige Addon-Datei `scripts/berlin_pack.db`.
 ---
 
 *"Die Stadt ist kein Ort, sie ist ein Dungeon. Geh raus und erobere sie."*
+
