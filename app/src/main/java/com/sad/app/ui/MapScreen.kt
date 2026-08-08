@@ -538,6 +538,18 @@ fun OSMMapView(
     val rumorIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF8C00"), false) } // Dark Orange für Gerüchte
     val clearedIcon = remember { createNeonMarker(context, Color.parseColor("#FF222222"), false) } // Dunkelgrau für erledigt
 
+    // Cache für individuelle Addon-Farben (iconColor Feld) – verhindert Bitmap-Neuerstellung bei jedem Frame
+    val customIconCache = remember { mutableMapOf<String, BitmapDrawable?>() }
+    fun customIconFor(hex: String): BitmapDrawable? {
+        return customIconCache.getOrPut(hex) {
+            try {
+                createNeonMarker(context, Color.parseColor(hex), false)
+            } catch (e: IllegalArgumentException) {
+                null // Ungültiger Hex-Wert → Fallback auf Rarity-Farbe
+            }
+        }
+    }
+
     // Wenn ein Zielort (z.B. aus Geruechten) uebergeben wird, Karte dorthin bewegen
     LaunchedEffect(targetLocation) {
         if (targetLocation != null) {
@@ -615,15 +627,25 @@ fun OSMMapView(
                 // zoom < 10: nur Epic und Rare sichtbar
                 // zoom 10-12: Epic, Rare, Uncommon (kein Normal/Visited-Spam)
                 // zoom >= 12: ALLE Marker sichtbar (normaler Spielbereich)
-                val skipMarker = when {
+                // minZoom aus Addon hat Vorrang vor rarity-basierter Zoom-Logik
+                val skipMarker = if (place.minZoom != null) {
+                    mapZoom < place.minZoom!!
+                } else when {
                     mapZoom < 10.0 -> place.rarity != "epic" && place.rarity != "rare"
                     mapZoom < 12.0 -> place.rarity == "common" || place.rarity == "" || (isVisited && place.rarity !in listOf("epic", "rare", "uncommon"))
                     else -> false
                 }
                 if (skipMarker) return@forEach
 
+                // iconColor aus Addon hat Vorrang – Fallback auf Rarity wenn null oder ungültig
                 val cachedIcon = when {
                     isVisited -> clearedIcon
+                    !place.iconColor.isNullOrBlank() -> customIconFor(place.iconColor!!) ?: when (place.rarity) {
+                        "epic" -> epicIcon
+                        "rare" -> rareIcon
+                        "uncommon" -> uncommonIcon
+                        else -> normalIcon
+                    }
                     place.rarity == "epic" -> epicIcon
                     place.rarity == "rare" -> rareIcon
                     place.rarity == "uncommon" -> uncommonIcon
