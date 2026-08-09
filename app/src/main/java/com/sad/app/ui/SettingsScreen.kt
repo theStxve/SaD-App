@@ -58,9 +58,9 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
         uri?.let {
             val res = MusicManager.addCustomSong(context, it)
             res.onSuccess { item ->
-                Toast.makeText(context, "🎵 Track '${item.title}' hinzugefügt!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Track '${item.title}' hinzugefügt!", Toast.LENGTH_SHORT).show()
             }.onFailure { err ->
-                Toast.makeText(context, "❌ Fehler beim Laden: ${err.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Fehler beim Laden: ${err.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -247,9 +247,7 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                                         horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(mode.iconText, fontSize = 12.sp)
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(mode.label, color = if (isSel) colors.primary else colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text(mode.label, color = if (isSel) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -321,7 +319,7 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(if (isCurrent && MusicManager.isPlaying) "▶" else "${idx + 1}.", color = if (isCurrent) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
+                                        Text(if (isCurrent && MusicManager.isPlaying) ">" else "${idx + 1}.", color = if (isCurrent) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
                                         Column {
                                             Text(song.title, color = if (isCurrent) colors.primary else colors.textPrimary, fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
                                             Text(if (song.isBuiltIn) "Built-In Ambient" else song.artist, color = colors.textSecondary, fontSize = 10.sp, maxLines = 1)

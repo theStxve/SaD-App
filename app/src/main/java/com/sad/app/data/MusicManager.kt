@@ -32,10 +32,10 @@ data class SongItem(
     val isBuiltIn: Boolean = false
 )
 
-enum class PlaybackMode(val label: String, val iconText: String) {
-    SINGLE_LOOP("Einzel-Loop", "🔂"),
-    SEQUENTIAL("Reihenfolge", "🔁"),
-    SHUFFLE("Shuffle", "🀄")
+enum class PlaybackMode(val label: String) {
+    SINGLE_LOOP("Einzel-Loop"),
+    SEQUENTIAL("Reihenfolge"),
+    SHUFFLE("Shuffle")
 }
 
 object MusicManager {
