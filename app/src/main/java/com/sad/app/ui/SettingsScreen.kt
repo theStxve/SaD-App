@@ -26,6 +26,17 @@ import com.sad.app.data.BackupManager
 import com.sad.app.data.PlayerProfile
 import kotlinx.coroutines.launch
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import com.sad.app.data.MusicManager
+import com.sad.app.data.PlaybackMode
+
 @Composable
 fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
     val context = LocalContext.current
@@ -40,6 +51,19 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
     var showShareSheet by remember { mutableStateOf(false) }
 
     var playerNameInput by remember { mutableStateOf(PlayerProfile.load(context).playerName) }
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            val res = MusicManager.addCustomSong(context, it)
+            res.onSuccess { item ->
+                Toast.makeText(context, "🎵 Track '${item.title}' hinzugefügt!", Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                Toast.makeText(context, "❌ Fehler beim Laden: ${err.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val addonPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -127,6 +151,208 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Divider(color = colors.surfaceVariant)
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // ── Audio & Hintergrundmusik ───────────────────────────────────────
+        item {
+            Text(
+                "AUDIO & HINTERGRUNDMUSIK",
+                color = colors.textSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Master Toggle Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Hintergrundmusik", color = colors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Schleife im Vordergrund", color = colors.textSecondary, fontSize = 11.sp)
+                        }
+                    }
+                    Switch(
+                        checked = MusicManager.isEnabled,
+                        onCheckedChange = { enabled -> MusicManager.toggleEnabled(context, enabled) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.bg,
+                            checkedTrackColor = colors.primary
+                        )
+                    )
+                }
+
+                if (MusicManager.isEnabled) {
+                    Divider(color = colors.surfaceVariant.copy(alpha = 0.5f))
+
+                    // Volume Slider
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Lautstärke", color = colors.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("${(MusicManager.volume * 100).toInt()}%", color = colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Slider(
+                            value = MusicManager.volume,
+                            onValueChange = { vol -> MusicManager.setVolume(context, vol) },
+                            colors = SliderDefaults.colors(
+                                thumbColor = colors.primary,
+                                activeTrackColor = colors.primary,
+                                inactiveTrackColor = colors.surfaceVariant
+                            )
+                        )
+                    }
+
+                    // Wiedergabemodus Selection
+                    Column {
+                        Text("Wiedergabemodus", color = colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            PlaybackMode.entries.forEach { mode ->
+                                val isSel = MusicManager.playbackMode == mode
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { MusicManager.setMode(context, mode) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isSel) colors.primary.copy(alpha = 0.2f) else colors.bg,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) colors.primary else colors.surfaceVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(mode.iconText, fontSize = 12.sp)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(mode.label, color = if (isSel) colors.primary else colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Now Playing HUD Card
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = colors.bg),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(MusicManager.currentTrackTitle, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Text(MusicManager.currentTrackArtist, color = colors.textSecondary, fontSize = 11.sp, maxLines = 1)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { MusicManager.previousTrack(context) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = colors.textPrimary, modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(
+                                    onClick = { MusicManager.togglePlayPause(context) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        if (MusicManager.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = colors.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { MusicManager.nextTrack(context) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.SkipNext, contentDescription = null, tint = colors.textPrimary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // Songs Playlist
+                    Column {
+                        Text("PLAYLIST (${MusicManager.playlist.size})", color = colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            MusicManager.playlist.forEachIndexed { idx, song ->
+                                val isCurrent = idx == MusicManager.currentSongIndex
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (isCurrent) colors.primary.copy(alpha = 0.15f) else colors.bg)
+                                        .border(1.dp, if (isCurrent) colors.primary.copy(alpha = 0.5f) else colors.surfaceVariant, RoundedCornerShape(6.dp))
+                                        .clickable { MusicManager.playTrackAtIndex(context, idx) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(if (isCurrent && MusicManager.isPlaying) "▶" else "${idx + 1}.", color = if (isCurrent) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
+                                        Column {
+                                            Text(song.title, color = if (isCurrent) colors.primary else colors.textPrimary, fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                                            Text(if (song.isBuiltIn) "Built-In Ambient" else song.artist, color = colors.textSecondary, fontSize = 10.sp, maxLines = 1)
+                                        }
+                                    }
+                                    if (!song.isBuiltIn) {
+                                        IconButton(
+                                            onClick = { MusicManager.removeCustomSong(context, song.id) },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Entfernen", tint = colors.accent.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Button: Add Song
+                    Button(
+                        onClick = { audioPickerLauncher.launch(arrayOf("audio/*")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = colors.primary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("EIGENEN SONG HINZUFÜGEN (.mp3, .wav, .ogg, .flac)", color = colors.primary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             Spacer(Modifier.height(20.dp))

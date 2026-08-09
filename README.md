@@ -16,6 +16,7 @@
 - **Addon Hub & KI-Modding:** Eigener Tab für Community-Dungeon-Packs (JSON & DB), inklusive integriertem Modding-Guide und KI-Master-Prompt per Knopfdruck für ChatGPT/Claude/Gemini.
 - **Custom Addon Styling:** Eigene Markerfarben (`iconColor`), Zoom-Sichtbarkeitsgrenzen (`minZoom`), Story-Lore, Quests und benutzerdefinierte XP per JSON.
 - **App-Themes:** 4 visuelle Modi (Legacy Cyberpunk, Light, Inferno, Matrix) mit voller Farb-Anpassung aller Screens.
+- **Hintergrundmusik & Custom Songs:** Integrierte Audio-Engine mit automatischem Synth-Ambient, eigener Song-Playlist (.mp3, .wav, .ogg, .flac), Lautstärkeregler, Loop/Shuffle-Modi und sanftem Fade-In/Out beim Wechsel in den Vordergrund/Hintergrund.
 - **Achievement-Protokoll:** Sammle Erfolge für nächtliche Erkundungen, das Teilen deines Fortschritts oder das Hacken des Systems.
 - **Offline Modus:** Zur Erstbestimmung der Position beim Start der App wird Internet empfohlen, abseits davon läuft die App ohne Netz.
 - **Level System:** Levelaufstiege mit dem Sammeln von XP und Freischalten von neuen Profiltiteln durchs Spielen.
@@ -41,6 +42,7 @@ SAD besitzt einen eigenen **Addon Hub Tab** zur einfachen Verwaltung und Erstell
 
 ## Settings & Personalisierung
 
+- **Audio & Hintergrundmusik:** Ein-/Ausschalten der BGM, Lautstärke-Slider, Playlist-Modus (Einzel-Loop, Reihenfolge, Shuffle), Now-Playing HUD Card und eigener Audio-Picker für eigene Songs.
 - **Design-Themes:** Auswählbar zwischen *Legacy*, *Light*, *Inferno* und *Matrix* – alle Farben und Kartenelemente passen sich nahtlos an.
 - **Tab-Sichtbarkeit:** Ausblenden/Einblenden einzelner Bottom-Bar-Tabs (Quests, Gerüchte, Addon Hub, Erfolge).
 - **Operative-Profilkarte:** Visuelles Cyberpunk-Sharing mit Tech-Corner Brackets, Glow-Effekten, Orbit-Ringen und "STATUS ONLINE"-Badge.

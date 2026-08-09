@@ -39,6 +39,10 @@ import com.sad.app.ui.RumorsScreen
 import com.sad.app.ui.SettingsScreen
 import com.sad.app.ui.TabVisibilityManager
 import com.sad.app.ui.ThemeManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.sad.app.data.MusicManager
 import org.osmdroid.util.GeoPoint
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
@@ -89,13 +93,36 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SADApp() {
     val context = LocalContext.current
-    // Einmalig beim Start: gespeicherte Map-Settings und Addons in den reaktiven State laden
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Einmalig beim Start: gespeicherte Map-Settings, Addons und MusicManager laden
     remember { 
         MapSettingsManager.init(context)
         TabVisibilityManager.init(context)
         com.sad.app.data.AddonManager.init(context)
+        MusicManager.init(context)
         Unit 
     }
+
+    // Musiksteuerung bei App-Vordergrund/Hintergrund Wechsel
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START, Lifecycle.Event.ON_RESUME -> {
+                    MusicManager.onAppForeground(context)
+                }
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
+                    MusicManager.onAppBackground()
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     var currentTheme by remember { mutableStateOf(ThemeManager.load(context)) }
     val colors = currentTheme.colors
 
