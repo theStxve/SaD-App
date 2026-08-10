@@ -94,33 +94,34 @@ class LocationTrackingService : Service() {
         val isPrecisionMode = mapPrefs.getBoolean("precisionModeEnabled", false)
         val stepMeters = if (isPrecisionMode) 20.0 else 150.0
 
+        // 0. Distanz IMMER messen (egal ob Bereich schon bekannt ist oder nicht!)
+        lastProcessedLocation?.let { lastLoc ->
+            val lastLat = lastLoc.latitude + latOffset
+            val lastLon = lastLoc.longitude + lonOffset
+            val results = FloatArray(1)
+            Location.distanceBetween(lastLat, lastLon, lat, lon, results)
+            val dist = results[0]
+            if (dist in 2f..500f) {
+                PlayerProfile.addDistanceMeters(this@LocationTrackingService, dist)
+            }
+
+            if (isConnectionMode && dist > stepMeters) {
+                val stepsCount = (dist / stepMeters).toInt()
+                for (i in 1 until stepsCount) {
+                    val frac = i.toDouble() / stepsCount
+                    val iLat = lastLat + frac * (lat - lastLat)
+                    val iLon = lastLon + frac * (lon - lastLon)
+                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
+                }
+            }
+        }
+        lastProcessedLocation = location
+
         // 1. Fog of War im Hintergrund aufdecken!
         val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(lat, lon)
         if (alreadyExplored == 0) {
             gameDb.exploredAreaDao().insert(ExploredArea(lat = lat, lon = lon, radius = stepMeters))
             PlayerProfile.incrementExplored(this@LocationTrackingService)
-
-            lastProcessedLocation?.let { lastLoc ->
-                val lastLat = lastLoc.latitude + latOffset
-                val lastLon = lastLoc.longitude + lonOffset
-                val results = FloatArray(1)
-                Location.distanceBetween(lastLat, lastLon, lat, lon, results)
-                val dist = results[0]
-                if (dist in 2f..500f) {
-                    PlayerProfile.addDistanceMeters(this@LocationTrackingService, dist)
-                }
-
-                if (isConnectionMode && dist > stepMeters) {
-                    val stepsCount = (dist / stepMeters).toInt()
-                    for (i in 1 until stepsCount) {
-                        val frac = i.toDouble() / stepsCount
-                        val iLat = lastLat + frac * (lat - lastLat)
-                        val iLon = lastLon + frac * (lon - lastLon)
-                        gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
-                    }
-                }
-            }
-            lastProcessedLocation = location
         }
 
         // 2. Dungeons im Hintergrund automatisch looten/entdecken!

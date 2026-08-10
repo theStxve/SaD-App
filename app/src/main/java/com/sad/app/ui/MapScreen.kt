@@ -263,6 +263,8 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
                 setWaitForAccurateLocation(false)
             }.build()
 
+            var lastForegroundLocation: GeoPoint? = null
+
             val callback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
                     result.lastLocation?.let { location ->
@@ -271,6 +273,17 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
                         val lonOffset = prefs.getFloat("lon_offset", 0f)
                         
                         val newGeoPoint = GeoPoint(location.latitude + latOffset, location.longitude + lonOffset)
+
+                        // Distanzmessung im Vordergrund
+                        lastForegroundLocation?.let { last ->
+                            val distRes = FloatArray(1)
+                            Location.distanceBetween(last.latitude, last.longitude, newGeoPoint.latitude, newGeoPoint.longitude, distRes)
+                            val dist = distRes[0]
+                            if (dist in 2f..500f) {
+                                PlayerProfile.addDistanceMeters(context, dist)
+                            }
+                        }
+                        lastForegroundLocation = newGeoPoint
                         userLocation = newGeoPoint
 
                         // POIs nachladen – MIT Offset, damit Dev-Modus korrekt funktioniert
