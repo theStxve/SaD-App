@@ -101,6 +101,7 @@ fun SADApp() {
         TabVisibilityManager.init(context)
         com.sad.app.data.AddonManager.init(context)
         MusicManager.init(context)
+        com.sad.app.data.RarityColorManager.init(context)
         Unit 
     }
 

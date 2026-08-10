@@ -503,6 +503,156 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
             Spacer(Modifier.height(20.dp))
         }
 
+        // ── Marker / Rarity Farben ───────────────────────────────────────────
+        item {
+            val rcm = com.sad.app.data.RarityColorManager
+
+            Text(
+                "MARKER FARBEN",
+                color = colors.textSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Passe die Farben jedes Seltenheitsgrades an. Hex-Wert eingeben (#RRGGBB).",
+                color = colors.textSecondary,
+                fontSize = 11.sp
+            )
+            Spacer(Modifier.height(10.dp))
+
+            // State-Holder für Eingabefelder (damit Tipp-Fehler nicht sofort übernommen werden)
+            var epicInput     by remember { mutableStateOf(rcm.epicColor) }
+            var rareInput     by remember { mutableStateOf(rcm.rareColor) }
+            var uncommonInput by remember { mutableStateOf(rcm.uncommonColor) }
+            var commonInput   by remember { mutableStateOf(rcm.commonColor) }
+
+            data class RarityRow(
+                val label: String,
+                val sublabel: String,
+                val input: String,
+                val liveHex: String,
+                val onInputChange: (String) -> Unit,
+                val onApply: () -> Unit
+            )
+
+            val rarityRows = listOf(
+                RarityRow("Epic", "Legendaer",   epicInput,     rcm.epicColor,
+                    { epicInput = it },
+                    { rcm.setEpic(context, epicInput.trim()) }),
+                RarityRow("Rare", "Sehr selten", rareInput,     rcm.rareColor,
+                    { rareInput = it },
+                    { rcm.setRare(context, rareInput.trim()) }),
+                RarityRow("Uncommon", "Selten",  uncommonInput, rcm.uncommonColor,
+                    { uncommonInput = it },
+                    { rcm.setUncommon(context, uncommonInput.trim()) }),
+                RarityRow("Common", "Haeufig",   commonInput,   rcm.commonColor,
+                    { commonInput = it },
+                    { rcm.setCommon(context, commonInput.trim()) }),
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.surface)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                rarityRows.forEach { row ->
+                    val parsedColor = try {
+                        val raw = row.liveHex.trim().let { if (it.startsWith("#")) it else "#$it" }
+                        Color(android.graphics.Color.parseColor(raw))
+                    } catch (e: Exception) { colors.textSecondary }
+
+                    val inputValid = rcm.isValidHex(row.input.trim())
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Live-Farb-Dot (zeigt aktuell gespeicherte Farbe)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(parsedColor)
+                                .border(1.5.dp, colors.surfaceVariant, CircleShape)
+                        )
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(row.label, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(6.dp))
+                                Text(row.sublabel, color = colors.textSecondary, fontSize = 11.sp)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = row.input,
+                                onValueChange = row.onInputChange,
+                                singleLine = true,
+                                placeholder = { Text(row.liveHex, color = colors.textSecondary.copy(alpha = 0.4f), fontSize = 12.sp) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = if (inputValid) parsedColor else colors.accent,
+                                    unfocusedBorderColor = if (inputValid) parsedColor.copy(alpha = 0.5f) else colors.surfaceVariant,
+                                    focusedTextColor = colors.textPrimary,
+                                    unfocusedTextColor = colors.textPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontSize = 12.sp,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                )
+                            )
+                        }
+
+                        // Anwenden-Button
+                        Button(
+                            onClick = {
+                                row.onApply()
+                                Toast.makeText(context, "${row.label} Farbe gespeichert", Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = inputValid,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = parsedColor.copy(alpha = 0.2f),
+                                disabledContainerColor = colors.surfaceVariant.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Text("OK", color = if (inputValid) parsedColor else colors.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+
+                Divider(color = colors.surfaceVariant.copy(alpha = 0.5f))
+
+                // Reset-Button
+                Button(
+                    onClick = {
+                        rcm.resetAll(context)
+                        epicInput     = rcm.epicColor
+                        rareInput     = rcm.rareColor
+                        uncommonInput = rcm.uncommonColor
+                        commonInput   = rcm.commonColor
+                        Toast.makeText(context, "Farben zurueckgesetzt", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.surfaceVariant.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("STANDARD WIEDERHERSTELLEN", color = colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Divider(color = colors.surfaceVariant)
+            Spacer(Modifier.height(20.dp))
+        }
+
         // ── Map Customization ───────────────────────────────────────────────
         item {
             // Reaktives State das sich bei MapSettingsManager.current Änderungen sofort aktualisiert

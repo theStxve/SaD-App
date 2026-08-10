@@ -557,16 +557,21 @@ fun OSMMapView(
     
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
-    // Cache the marker icons to prevent 60fps bitmap recreation during zoom
-    val epicIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF00E6"), false) }
-    val rareIcon = remember { createNeonMarker(context, Color.parseColor("#FFFFD700"), false) }
-    val uncommonIcon = remember { createNeonMarker(context, Color.parseColor("#FF00FF00"), false) }
-    val normalIcon = remember { createNeonMarker(context, Color.parseColor("#FF555555"), false) }
-    val rumorIcon = remember { createNeonMarker(context, Color.parseColor("#FFFF8C00"), false) } // Dark Orange für Gerüchte
-    val clearedIcon = remember { createNeonMarker(context, Color.parseColor("#FF222222"), false) } // Dunkelgrau für erledigt
+    val rcm = com.sad.app.data.RarityColorManager
+
+    // Marker-Icons: neu erstellt wenn Rarity-Farben in Settings geändert werden
+    val epicIcon     = remember(rcm.epicColor)     { createNeonMarker(context, rcm.epicArgb(),     false) }
+    val rareIcon     = remember(rcm.rareColor)     { createNeonMarker(context, rcm.rareArgb(),     false) }
+    val uncommonIcon = remember(rcm.uncommonColor) { createNeonMarker(context, rcm.uncommonArgb(), false) }
+    val normalIcon   = remember(rcm.commonColor)   { createNeonMarker(context, rcm.commonArgb(),   false) }
+    val rumorIcon    = remember { createNeonMarker(context, Color.parseColor("#FFFF8C00"), false) }
+    val clearedIcon  = remember { createNeonMarker(context, Color.parseColor("#FF222222"), false) }
 
     // Cache für individuelle Addon-Farben (iconColor Feld) – verhindert Bitmap-Neuerstellung bei jedem Frame
-    val customIconCache = remember { mutableMapOf<String, BitmapDrawable?>() }
+    // Cache wird geleert wenn sich Rarity-Farben ändern (damit Fallbacks auch aktualisiert werden)
+    val customIconCache = remember(rcm.epicColor, rcm.rareColor, rcm.uncommonColor, rcm.commonColor) {
+        mutableMapOf<String, BitmapDrawable?>()
+    }
     fun customIconFor(hex: String, isVisited: Boolean): BitmapDrawable? {
         val cacheKey = "$hex-$isVisited"
         return customIconCache.getOrPut(cacheKey) {
