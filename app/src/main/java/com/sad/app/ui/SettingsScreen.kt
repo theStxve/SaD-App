@@ -17,11 +17,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.sad.app.data.BackupManager
 import com.sad.app.data.PlayerProfile
 import kotlinx.coroutines.launch
@@ -36,6 +40,146 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import com.sad.app.data.MusicManager
 import com.sad.app.data.PlaybackMode
+
+/** Wandelt HSV in eine Compose Color um */
+private fun hsvToColor(h: Float, s: Float, v: Float): Color {
+    val argb = android.graphics.Color.HSVToColor(floatArrayOf(h * 360f, s, v))
+    return Color(argb)
+}
+
+/** Parst einen Hex-String zu RGB-Werten (0f..1f), gibt null bei Fehler */
+private fun hexToRgb(hex: String): Triple<Float, Float, Float>? {
+    return try {
+        val clean = hex.trim().removePrefix("#")
+        val argb = android.graphics.Color.parseColor("#$clean")
+        Triple(
+            android.graphics.Color.red(argb) / 255f,
+            android.graphics.Color.green(argb) / 255f,
+            android.graphics.Color.blue(argb) / 255f
+        )
+    } catch (e: Exception) { null }
+}
+
+@Composable
+fun ColorPickerDialog(
+    initialHex: String,
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val appColors = LocalAppColors.current
+
+    // Initialisiere R/G/B aus dem aktuellen Hex
+    val initRgb = hexToRgb(initialHex) ?: Triple(1f, 0f, 0.9f)
+    var r by remember { mutableStateOf(initRgb.first) }
+    var g by remember { mutableStateOf(initRgb.second) }
+    var b by remember { mutableStateOf(initRgb.third) }
+
+    val pickedColor = Color(r, g, b)
+    val hexOutput = "#%02X%02X%02X".format(
+        (r * 255).toInt(), (g * 255).toInt(), (b * 255).toInt()
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(appColors.surface)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Titel
+            Text(
+                title.uppercase(),
+                color = appColors.primary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+
+            // Großes Farb-Preview + Hex-Code
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(pickedColor)
+                        .border(2.dp, appColors.surfaceVariant, RoundedCornerShape(12.dp))
+                )
+                Column {
+                    Text("Vorschau", color = appColors.textSecondary, fontSize = 10.sp)
+                    Text(
+                        hexOutput,
+                        color = appColors.textPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            Divider(color = appColors.surfaceVariant.copy(alpha = 0.5f))
+
+            // RGB Slider helper
+            @Composable
+            fun RgbSlider(label: String, value: Float, trackColor: Color, onChange: (Float) -> Unit) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(label, color = appColors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text("${(value * 255).toInt()}", color = trackColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Slider(
+                        value = value,
+                        onValueChange = onChange,
+                        colors = SliderDefaults.colors(
+                            thumbColor = trackColor,
+                            activeTrackColor = trackColor,
+                            inactiveTrackColor = appColors.surfaceVariant
+                        )
+                    )
+                }
+            }
+
+            RgbSlider("R – Rot",   r, Color(1f, 0.2f, 0.2f)) { r = it }
+            RgbSlider("G – Gruen", g, Color(0.2f, 0.9f, 0.2f)) { g = it }
+            RgbSlider("B – Blau",  b, Color(0.3f, 0.6f, 1f)) { b = it }
+
+            Divider(color = appColors.surfaceVariant.copy(alpha = 0.5f))
+
+            // Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceVariant)
+                ) {
+                    Text("ABBRECHEN", color = appColors.textSecondary, fontSize = 11.sp)
+                }
+                Button(
+                    onClick = { onConfirm(hexOutput) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = pickedColor.copy(alpha = 0.25f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, pickedColor)
+                ) {
+                    Text("UEBERNEHMEN", color = pickedColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
@@ -507,6 +651,40 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
         item {
             val rcm = com.sad.app.data.RarityColorManager
 
+            // Welcher Color Picker gerade offen ist (null = keiner)
+            var pickerTarget by remember { mutableStateOf<String?>(null) }
+
+            // Zeige Color Picker Dialog wenn ein Target gesetzt ist
+            pickerTarget?.let { target ->
+                val currentHex = when (target) {
+                    "epic"     -> rcm.epicColor
+                    "rare"     -> rcm.rareColor
+                    "uncommon" -> rcm.uncommonColor
+                    else       -> rcm.commonColor
+                }
+                val displayName = when (target) {
+                    "epic"     -> "Epic – Legendaer"
+                    "rare"     -> "Rare – Sehr selten"
+                    "uncommon" -> "Uncommon – Selten"
+                    else       -> "Common – Haeufig"
+                }
+                ColorPickerDialog(
+                    initialHex = currentHex,
+                    title = displayName,
+                    onDismiss = { pickerTarget = null },
+                    onConfirm = { hex ->
+                        when (target) {
+                            "epic"     -> rcm.setEpic(context, hex)
+                            "rare"     -> rcm.setRare(context, hex)
+                            "uncommon" -> rcm.setUncommon(context, hex)
+                            else       -> rcm.setCommon(context, hex)
+                        }
+                        pickerTarget = null
+                        Toast.makeText(context, "$displayName gespeichert", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+
             Text(
                 "MARKER FARBEN",
                 color = colors.textSecondary,
@@ -516,19 +694,20 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Passe die Farben jedes Seltenheitsgrades an. Hex-Wert eingeben (#RRGGBB).",
+                "Tippe auf den Farbkreis um den Color Picker zu oeffnen.",
                 color = colors.textSecondary,
                 fontSize = 11.sp
             )
             Spacer(Modifier.height(10.dp))
 
-            // State-Holder für Eingabefelder (damit Tipp-Fehler nicht sofort übernommen werden)
-            var epicInput     by remember { mutableStateOf(rcm.epicColor) }
-            var rareInput     by remember { mutableStateOf(rcm.rareColor) }
-            var uncommonInput by remember { mutableStateOf(rcm.uncommonColor) }
-            var commonInput   by remember { mutableStateOf(rcm.commonColor) }
+            // State-Holder für Eingabefelder
+            var epicInput     by remember(rcm.epicColor)     { mutableStateOf(rcm.epicColor) }
+            var rareInput     by remember(rcm.rareColor)     { mutableStateOf(rcm.rareColor) }
+            var uncommonInput by remember(rcm.uncommonColor) { mutableStateOf(rcm.uncommonColor) }
+            var commonInput   by remember(rcm.commonColor)   { mutableStateOf(rcm.commonColor) }
 
             data class RarityRow(
+                val key: String,
                 val label: String,
                 val sublabel: String,
                 val input: String,
@@ -538,18 +717,14 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
             )
 
             val rarityRows = listOf(
-                RarityRow("Epic", "Legendaer",   epicInput,     rcm.epicColor,
-                    { epicInput = it },
-                    { rcm.setEpic(context, epicInput.trim()) }),
-                RarityRow("Rare", "Sehr selten", rareInput,     rcm.rareColor,
-                    { rareInput = it },
-                    { rcm.setRare(context, rareInput.trim()) }),
-                RarityRow("Uncommon", "Selten",  uncommonInput, rcm.uncommonColor,
-                    { uncommonInput = it },
-                    { rcm.setUncommon(context, uncommonInput.trim()) }),
-                RarityRow("Common", "Haeufig",   commonInput,   rcm.commonColor,
-                    { commonInput = it },
-                    { rcm.setCommon(context, commonInput.trim()) }),
+                RarityRow("epic",     "Epic",    "Legendaer",   epicInput,     rcm.epicColor,
+                    { epicInput = it },     { rcm.setEpic(context, epicInput.trim()) }),
+                RarityRow("rare",     "Rare",    "Sehr selten", rareInput,     rcm.rareColor,
+                    { rareInput = it },     { rcm.setRare(context, rareInput.trim()) }),
+                RarityRow("uncommon", "Uncommon", "Selten",     uncommonInput, rcm.uncommonColor,
+                    { uncommonInput = it }, { rcm.setUncommon(context, uncommonInput.trim()) }),
+                RarityRow("common",   "Common",  "Haeufig",     commonInput,   rcm.commonColor,
+                    { commonInput = it },   { rcm.setCommon(context, commonInput.trim()) }),
             )
 
             Column(
@@ -573,14 +748,19 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Live-Farb-Dot (zeigt aktuell gespeicherte Farbe)
+                        // Klickbarer Farb-Dot – oeffnet Color Picker
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(parsedColor)
-                                .border(1.5.dp, colors.surfaceVariant, CircleShape)
-                        )
+                                .border(2.dp, colors.textPrimary.copy(alpha = 0.3f), CircleShape)
+                                .clickable { pickerTarget = row.key },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Kleines "Edit"-Icon-Symbol (Stift-Punkte)
+                            Text("...", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
 
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -603,7 +783,7 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                                 modifier = Modifier.fillMaxWidth(),
                                 textStyle = androidx.compose.ui.text.TextStyle(
                                     fontSize = 12.sp,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    fontFamily = FontFamily.Monospace
                                 )
                             )
                         }
@@ -634,10 +814,6 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                 Button(
                     onClick = {
                         rcm.resetAll(context)
-                        epicInput     = rcm.epicColor
-                        rareInput     = rcm.rareColor
-                        uncommonInput = rcm.uncommonColor
-                        commonInput   = rcm.commonColor
                         Toast.makeText(context, "Farben zurueckgesetzt", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.fillMaxWidth(),
