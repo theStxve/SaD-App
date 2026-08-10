@@ -7,7 +7,7 @@ import androidx.room.Query
 
 @Dao
 interface VisitedDungeonDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE) // IGNORE = kein Doppeleintrag möglich
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(dungeon: VisitedDungeon)
 
     @Query("SELECT COUNT(*) FROM visited_dungeons WHERE osm_id = :osmId")
@@ -27,4 +27,12 @@ interface VisitedDungeonDao {
 
     @Query("DELETE FROM visited_dungeons")
     suspend fun deleteAll()
+
+    // Fuer Daily/Weekly Quest Fortschritt
+    @Query("SELECT COUNT(*) FROM visited_dungeons WHERE visitedAt >= :since")
+    suspend fun countSince(since: Long): Int
+
+    @Query("SELECT osm_id FROM visited_dungeons WHERE visitedAt >= :since")
+    suspend fun getOsmIdsSince(since: Long): List<String>
 }
+

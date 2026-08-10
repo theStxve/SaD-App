@@ -59,7 +59,11 @@ data class PlayerProfile(
         fun addXP(context: Context, amount: Int) {
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
             val current = prefs.getInt("xp", 0)
-            prefs.edit().putInt("xp", (current + amount).coerceAtLeast(0)).apply()
+            val newXp = (current + amount).coerceAtLeast(0)
+            prefs.edit().putInt("xp", newXp).apply()
+            if (amount > 0) {
+                DailyQuestManager.trackDungeonVisit(context, amount)
+            }
         }
 
         fun subtractXP(context: Context, amount: Int) {
@@ -107,6 +111,7 @@ data class PlayerProfile(
                 prefs.edit().putInt("morning_explored_count", morning + 1).apply()
             }
 
+            DailyQuestManager.trackExplore(context)
             addXP(context, 10)
         }
 
