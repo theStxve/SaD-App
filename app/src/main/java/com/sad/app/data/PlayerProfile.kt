@@ -32,10 +32,13 @@ data class PlayerProfile(
             val nightExplored = prefs.getInt("night_explored_count", 0)
             val morningExplored = prefs.getInt("morning_explored_count", 0)
 
-            // Rueckwirkende Distanz-Schaetzung (150m pro erkundetem Bereich + 1.2km pro Dungeon)
-            val trackedMeters = prefs.getFloat("total_distance_meters", 0f)
-            val estimatedMeters = (explored * 150f) + (dungeons * 1200f)
-            val totalDistanceMeters = maxOf(trackedMeters, estimatedMeters)
+            // Rueckwirkende Distanz-Schaetzung als permanente Basis speichern
+            var trackedMeters = prefs.getFloat("total_distance_meters", -1f)
+            if (trackedMeters < 0f) {
+                trackedMeters = (explored * 150f) + (dungeons * 1200f)
+                prefs.edit().putFloat("total_distance_meters", trackedMeters).apply()
+            }
+            val totalDistanceMeters = trackedMeters
 
             val streakDays = prefs.getInt("streak_days", if (dungeons > 0 || explored > 0) 1 else 0)
 
@@ -57,8 +60,14 @@ data class PlayerProfile(
         fun addDistanceMeters(context: Context, meters: Float) {
             if (meters <= 0) return
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getFloat("total_distance_meters", 0f)
-            prefs.edit().putFloat("total_distance_meters", current + meters).apply()
+            var current = prefs.getFloat("total_distance_meters", -1f)
+            if (current < 0f) {
+                val explored = prefs.getInt("explored_count", 0)
+                val dungeons = prefs.getInt("visited_dungeons", 0)
+                current = (explored * 150f) + (dungeons * 1200f)
+            }
+            val updated = current + meters
+            prefs.edit().putFloat("total_distance_meters", updated).apply()
             DailyQuestManager.trackDistance(context, meters)
         }
 

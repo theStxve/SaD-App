@@ -110,16 +110,16 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
 
         // Immer sichtbar: Haupt-Pills (Strecke, Bereiche, Dungeons)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatPill("🚶 $kmFormatted", colors.primary, colors)
-            StatPill("◈ ${profile.exploredCount} Bereiche", colors.accent, colors)
-            StatPill("⚔ ${profile.visitedDungeons} Dungeons", colors.gold, colors)
+            StatPill(kmFormatted, colors.primary, colors)
+            StatPill("${profile.exploredCount} Bereiche", colors.accent, colors)
+            StatPill("${profile.visitedDungeons} Dungeons", colors.gold, colors)
         }
 
         Spacer(Modifier.height(6.dp))
 
         // Immer sichtbar: XP & Rate
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatPill("★ ${profile.xp} XP Gesamt", colors.gold, colors)
+            StatPill("${profile.xp} XP Gesamt", colors.gold, colors)
             StatPill("Ø $avgXpPerDungeon XP/Dungeon", colors.textSecondary, colors)
         }
 
@@ -149,8 +149,8 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatPill("Ø $kmPerDungeonFormatted / Dungeon", colors.primary, colors)
-                StatPill("🌙 ${profile.nightExploredCount} Nacht", Color(0xFF8888FF), colors)
-                StatPill("🌅 ${profile.morningExploredCount} Morgen", Color(0xFFFF8C00), colors)
+                StatPill("${profile.nightExploredCount} Nacht", Color(0xFF8888FF), colors)
+                StatPill("${profile.morningExploredCount} Morgen", Color(0xFFFF8C00), colors)
             }
         }
     }
@@ -228,14 +228,19 @@ fun DailyQuestCard(state: DailyQuestState, colors: AppColors, onClaim: () -> Uni
                         fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     isClaimable -> Button(
                         onClick = onClaim,
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.gold.copy(alpha = 0.2f)),
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.gold),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.gold.copy(alpha = 0.22f)),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, colors.gold),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp)
                     ) {
-                        Text("EINLOESEN\n+${state.quest.xpReward} XP",
-                            color = colors.gold, fontSize = 10.sp,
-                            fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text("EINLÖSEN", color = colors.gold, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                            Text("•", color = colors.gold.copy(alpha = 0.5f), fontSize = 10.sp)
+                            Text("+${state.quest.xpReward} XP", color = colors.gold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     else -> Text("+${state.quest.xpReward} XP",
                         color = colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
