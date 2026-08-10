@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,20 +17,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 data class SongItem(
     val id: String,
     val title: String,
     val artist: String,
-    val uriString: String,
-    val isBuiltIn: Boolean = false
+    val uriString: String
 )
 
 enum class PlaybackMode(val label: String) {
@@ -48,6 +44,7 @@ object MusicManager {
 
     private var mediaPlayer: MediaPlayer? = null
     private var fadeJob: Job? = null
+    private var progressJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
     // Reactive Compose States
@@ -71,17 +68,27 @@ object MusicManager {
     var currentTrackTitle by mutableStateOf("Kein Song")
         private set
 
-    var currentTrackArtist by mutableStateOf("SAD Audio")
+    var currentTrackArtist by mutableStateOf("")
+        private set
+
+    var currentPositionMs by mutableLongStateOf(0L)
+        private set
+
+    var durationMs by mutableLongStateOf(0L)
         private set
 
     private var isAppInForeground = false
-    private var builtInSongFile: File? = null
 
     fun init(context: Context) {
         val appContext = context.applicationContext
 
-        // Built-in Synth Ambient generieren falls nötig
-        ensureBuiltInAmbientTrack(appContext)
+        // Evtl. altes generiertes Synth-WAV aus dem Cache aufräumen
+        try {
+            val oldSynthFile = File(appContext.cacheDir, "cyberpunk_synth_ambient.wav")
+            if (oldSynthFile.exists()) {
+                oldSynthFile.delete()
+            }
+        } catch (e: Exception) {}
 
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         isEnabled = prefs.getBoolean(KEY_ENABLED, false)
@@ -90,38 +97,25 @@ object MusicManager {
         playbackMode = try { PlaybackMode.valueOf(modeStr) } catch (e: Exception) { PlaybackMode.SEQUENTIAL }
         currentSongIndex = prefs.getInt(KEY_CURRENT_INDEX, 0)
 
-        // Playlist laden
+        // Playlist aus SharedPreferences laden
         playlist.clear()
-
-        // 1. Built-in Synth Song immer als ersten Track hinzufügen
-        builtInSongFile?.let { file ->
-            playlist.add(
-                SongItem(
-                    id = "builtin_ambient_01",
-                    title = "Cyberpunk Synth Ambient",
-                    artist = "SAD Underground Protocol",
-                    uriString = Uri.fromFile(file).toString(),
-                    isBuiltIn = true
-                )
-            )
-        }
-
-        // 2. Eigene Songs aus SharedPreferences laden
         val savedPlaylistJson = prefs.getString(KEY_PLAYLIST, null)
         if (!savedPlaylistJson.isNullOrBlank()) {
             try {
                 val array = JSONArray(savedPlaylistJson)
                 for (i in 0 until array.length()) {
                     val obj = array.getJSONObject(i)
-                    playlist.add(
-                        SongItem(
-                            id = obj.optString("id", "custom_$i"),
-                            title = obj.optString("title", "Unbekannter Track"),
-                            artist = obj.optString("artist", "Eigener Song"),
-                            uriString = obj.optString("uriString", ""),
-                            isBuiltIn = false
+                    val uriStr = obj.optString("uriString", "")
+                    if (uriStr.isNotBlank()) {
+                        playlist.add(
+                            SongItem(
+                                id = obj.optString("id", "custom_$i"),
+                                title = obj.optString("title", "Unbekannter Track"),
+                                artist = obj.optString("artist", "Eigener Song"),
+                                uriString = uriStr
+                            )
                         )
-                    )
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -141,8 +135,10 @@ object MusicManager {
             currentTrackTitle = track.title
             currentTrackArtist = track.artist
         } else {
-            currentTrackTitle = "Kein Song"
-            currentTrackArtist = ""
+            currentTrackTitle = "Keine Songs"
+            currentTrackArtist = "Füge eigene Songs hinzu"
+            currentPositionMs = 0L
+            durationMs = 0L
         }
     }
 
@@ -152,7 +148,7 @@ object MusicManager {
         prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
 
         if (enabled) {
-            if (isAppInForeground) {
+            if (isAppInForeground && playlist.isNotEmpty()) {
                 playCurrent(context)
             }
         } else {
@@ -173,6 +169,16 @@ object MusicManager {
         prefs.edit().putString(KEY_MODE, mode.name).apply()
     }
 
+    fun seekTo(positionMs: Long) {
+        mediaPlayer?.let { mp ->
+            try {
+                val target = positionMs.coerceIn(0L, durationMs).toInt()
+                mp.seekTo(target)
+                currentPositionMs = target.toLong()
+            } catch (e: Exception) {}
+        }
+    }
+
     fun playTrackAtIndex(context: Context, index: Int) {
         if (index !in playlist.indices) return
         currentSongIndex = index
@@ -186,6 +192,8 @@ object MusicManager {
     }
 
     fun togglePlayPause(context: Context) {
+        if (playlist.isEmpty()) return
+
         if (!isEnabled) {
             toggleEnabled(context, true)
             return
@@ -195,9 +203,11 @@ object MusicManager {
             if (mp.isPlaying) {
                 mp.pause()
                 isPlaying = false
+                progressJob?.cancel()
             } else {
                 mp.start()
                 isPlaying = true
+                startProgressTracker()
             }
         } ?: run {
             playCurrent(context)
@@ -223,14 +233,13 @@ object MusicManager {
     fun addCustomSong(context: Context, uri: Uri): Result<SongItem> {
         val appContext = context.applicationContext
         return try {
-            // Persistable Permission anfordern falls SAF Uri
             try {
                 appContext.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (e: Exception) {
-                // Kann bei manchen Providern auftreten, ignorieren
+                // Ignore if not supported by provider
             }
 
             var title = "Unbekannter Track"
@@ -244,7 +253,6 @@ object MusicManager {
                 if (!mTitle.isNullOrBlank()) title = mTitle
                 if (!mArtist.isNullOrBlank()) artist = mArtist
             } catch (e: Exception) {
-                // Fallback: Dateiname aus Uri lesen
                 uri.lastPathSegment?.let { segment ->
                     val clean = segment.substringAfterLast("/")
                     if (clean.isNotBlank()) title = clean
@@ -257,15 +265,16 @@ object MusicManager {
                 id = "custom_${System.currentTimeMillis()}",
                 title = title,
                 artist = artist,
-                uriString = uri.toString(),
-                isBuiltIn = false
+                uriString = uri.toString()
             )
 
             playlist.add(item)
             saveCustomSongs(appContext)
 
-            // Falls es der erste Song war oder Musik aktiv ist, bereit machen
             updateCurrentTrackInfo()
+            if (playlist.size == 1 && isEnabled) {
+                playTrackAtIndex(context, 0)
+            }
             Result.success(item)
         } catch (e: Exception) {
             Result.failure(e)
@@ -274,7 +283,7 @@ object MusicManager {
 
     fun removeCustomSong(context: Context, songId: String) {
         val idx = playlist.indexOfFirst { it.id == songId }
-        if (idx != -1 && !playlist[idx].isBuiltIn) {
+        if (idx != -1) {
             playlist.removeAt(idx)
             saveCustomSongs(context.applicationContext)
 
@@ -283,16 +292,17 @@ object MusicManager {
             }
             updateCurrentTrackInfo()
 
-            if (isPlaying && isEnabled) {
+            if (playlist.isEmpty()) {
+                stopAndRelease()
+            } else if (isPlaying && isEnabled) {
                 playCurrent(context)
             }
         }
     }
 
     private fun saveCustomSongs(context: Context) {
-        val customList = playlist.filter { !it.isBuiltIn }
         val array = JSONArray()
-        for (song in customList) {
+        for (song in playlist) {
             val obj = JSONObject()
             obj.put("id", song.id)
             obj.put("title", song.title)
@@ -307,7 +317,7 @@ object MusicManager {
     // App Foreground / Background Hooks
     fun onAppForeground(context: Context) {
         isAppInForeground = true
-        if (isEnabled) {
+        if (isEnabled && playlist.isNotEmpty()) {
             playCurrent(context, fadeIn = true)
         }
     }
@@ -320,7 +330,10 @@ object MusicManager {
     }
 
     private fun playCurrent(context: Context, fadeIn: Boolean = false) {
-        if (playlist.isEmpty()) return
+        if (playlist.isEmpty()) {
+            stopAndRelease()
+            return
+        }
         val currentTrack = playlist.getOrNull(currentSongIndex) ?: return
 
         fadeJob?.cancel()
@@ -347,7 +360,9 @@ object MusicManager {
             mp.start()
             mediaPlayer = mp
             isPlaying = true
+            durationMs = mp.duration.toLong().coerceAtLeast(0L)
             updateCurrentTrackInfo()
+            startProgressTracker()
 
             if (fadeIn) {
                 fadeJob = scope.launch {
@@ -366,8 +381,26 @@ object MusicManager {
         }
     }
 
+    private fun startProgressTracker() {
+        progressJob?.cancel()
+        progressJob = scope.launch {
+            while (isPlaying) {
+                mediaPlayer?.let { mp ->
+                    try {
+                        if (mp.isPlaying) {
+                            currentPositionMs = mp.currentPosition.toLong()
+                            durationMs = mp.duration.toLong().coerceAtLeast(0L)
+                        }
+                    } catch (e: Exception) {}
+                }
+                delay(250)
+            }
+        }
+    }
+
     private fun fadeOutAndPause() {
         fadeJob?.cancel()
+        progressJob?.cancel()
         val mp = mediaPlayer ?: return
         if (!mp.isPlaying) return
 
@@ -390,6 +423,7 @@ object MusicManager {
 
     private fun stopAndRelease() {
         fadeJob?.cancel()
+        progressJob?.cancel()
         mediaPlayer?.let { mp ->
             try {
                 if (mp.isPlaying) mp.stop()
@@ -398,76 +432,14 @@ object MusicManager {
         }
         mediaPlayer = null
         isPlaying = false
+        currentPositionMs = 0L
     }
 
-    /**
-     * Synthesizes a atmospheric 10-second Cyberpunk Synth Ambient WAV loop into app cache if missing.
-     * Uses a sub-bass drone (55Hz) + dual detuned synth pads (110Hz / 112Hz) with smooth modulation.
-     */
-    private fun ensureBuiltInAmbientTrack(context: Context) {
-        val file = File(context.cacheDir, "cyberpunk_synth_ambient.wav")
-        builtInSongFile = file
-        if (file.exists() && file.length() > 1000) return
-
-        scope.launch(Dispatchers.IO) {
-            try {
-                val sampleRate = 44100
-                val durationSec = 12
-                val numSamples = sampleRate * durationSec
-                val pcmData = ShortArray(numSamples)
-
-                val freqSub = 55.0 // A1 Sub-bass
-                val freqPad1 = 110.0 // A2
-                val freqPad2 = 164.81 // E3 (fifth)
-
-                for (i in 0 until numSamples) {
-                    val t = i.toDouble() / sampleRate
-                    // Envelope for seamless loop fading
-                    val loopEnv = Math.sin(Math.PI * (t / durationSec))
-
-                    // Low LFO for pulsing filter effect
-                    val lfo = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.25 * t)
-
-                    // Sub-bass tone
-                    val sub = Math.sin(2 * Math.PI * freqSub * t) * 0.45
-
-                    // Warm detuned synth pad
-                    val pad1 = Math.sin(2 * Math.PI * freqPad1 * t) * 0.25
-                    val pad2 = Math.sin(2 * Math.PI * (freqPad2 + 0.5) * t) * 0.20
-
-                    val mix = (sub + (pad1 + pad2) * lfo) * loopEnv * 0.7
-                    pcmData[i] = (mix * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-                }
-
-                // Write WAV file header + PCM data
-                val byteBuffer = ByteBuffer.allocate(44 + numSamples * 2).order(ByteOrder.LITTLE_ENDIAN)
-                // RIFF header
-                byteBuffer.put("RIFF".toByteArray())
-                byteBuffer.putInt(36 + numSamples * 2)
-                byteBuffer.put("WAVE".toByteArray())
-                // fmt chunk
-                byteBuffer.put("fmt ".toByteArray())
-                byteBuffer.putInt(16) // Subchunk1Size
-                byteBuffer.putShort(1.toShort()) // AudioFormat (PCM)
-                byteBuffer.putShort(1.toShort()) // NumChannels (Mono)
-                byteBuffer.putInt(sampleRate)
-                byteBuffer.putInt(sampleRate * 2) // ByteRate
-                byteBuffer.putShort(2.toShort()) // BlockAlign
-                byteBuffer.putShort(16.toShort()) // BitsPerSample
-                // data chunk
-                byteBuffer.put("data".toByteArray())
-                byteBuffer.putInt(numSamples * 2)
-
-                for (sample in pcmData) {
-                    byteBuffer.putShort(sample)
-                }
-
-                FileOutputStream(file).use { fos ->
-                    fos.write(byteBuffer.array())
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+    fun formatTime(ms: Long): String {
+        if (ms <= 0) return "00:00"
+        val totalSec = ms / 1000
+        val min = totalSec / 60
+        val sec = totalSec % 60
+        return String.format("%02d:%02d", min, sec)
     }
 }

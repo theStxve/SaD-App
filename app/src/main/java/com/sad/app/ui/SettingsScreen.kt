@@ -261,40 +261,87 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                         border = androidx.compose.foundation.BorderStroke(1.dp, colors.primary.copy(alpha = 0.4f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(12.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(MusicManager.currentTrackTitle, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                                Text(MusicManager.currentTrackArtist, color = colors.textSecondary, fontSize = 11.sp, maxLines = 1)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(MusicManager.currentTrackTitle, color = colors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                    if (MusicManager.currentTrackArtist.isNotBlank()) {
+                                        Text(MusicManager.currentTrackArtist, color = colors.textSecondary, fontSize = 11.sp, maxLines = 1)
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { MusicManager.previousTrack(context) },
+                                        enabled = MusicManager.playlist.isNotEmpty(),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = if (MusicManager.playlist.isNotEmpty()) colors.textPrimary else colors.textSecondary.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+                                    }
+                                    IconButton(
+                                        onClick = { MusicManager.togglePlayPause(context) },
+                                        enabled = MusicManager.playlist.isNotEmpty(),
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            if (MusicManager.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = null,
+                                            tint = if (MusicManager.playlist.isNotEmpty()) colors.primary else colors.textSecondary.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { MusicManager.nextTrack(context) },
+                                        enabled = MusicManager.playlist.isNotEmpty(),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.SkipNext, contentDescription = null, tint = if (MusicManager.playlist.isNotEmpty()) colors.textPrimary else colors.textSecondary.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+                                    }
+                                }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = { MusicManager.previousTrack(context) },
-                                    modifier = Modifier.size(32.dp)
+
+                            // Song Fortschrittsleiste / Player Seek Slider
+                            if (MusicManager.playlist.isNotEmpty() && MusicManager.durationMs > 0) {
+                                var isSeeking by remember { mutableStateOf(false) }
+                                var sliderPos by remember { mutableFloatStateOf(0f) }
+
+                                val currentPos = if (isSeeking) sliderPos.toLong() else MusicManager.currentPositionMs
+                                val maxDur = MusicManager.durationMs.toFloat().coerceAtLeast(1f)
+
+                                Spacer(Modifier.height(6.dp))
+                                Slider(
+                                    value = currentPos.toFloat().coerceIn(0f, maxDur),
+                                    onValueChange = { newPos ->
+                                        isSeeking = true
+                                        sliderPos = newPos
+                                    },
+                                    onValueChangeFinished = {
+                                        MusicManager.seekTo(sliderPos.toLong())
+                                        isSeeking = false
+                                    },
+                                    valueRange = 0f..maxDur,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = colors.primary,
+                                        activeTrackColor = colors.primary,
+                                        inactiveTrackColor = colors.surfaceVariant
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(24.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = colors.textPrimary, modifier = Modifier.size(18.dp))
-                                }
-                                IconButton(
-                                    onClick = { MusicManager.togglePlayPause(context) },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        if (MusicManager.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = null,
-                                        tint = colors.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { MusicManager.nextTrack(context) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(Icons.Default.SkipNext, contentDescription = null, tint = colors.textPrimary, modifier = Modifier.size(18.dp))
+                                    Text(MusicManager.formatTime(currentPos), color = colors.textSecondary, fontSize = 10.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                                    Text(MusicManager.formatTime(MusicManager.durationMs), color = colors.textSecondary, fontSize = 10.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                                 }
                             }
                         }
@@ -304,28 +351,39 @@ fun SettingsScreen(onThemeChanged: (AppTheme) -> Unit = {}) {
                     Column {
                         Text("PLAYLIST (${MusicManager.playlist.size})", color = colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            MusicManager.playlist.forEachIndexed { idx, song ->
-                                val isCurrent = idx == MusicManager.currentSongIndex
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(if (isCurrent) colors.primary.copy(alpha = 0.15f) else colors.bg)
-                                        .border(1.dp, if (isCurrent) colors.primary.copy(alpha = 0.5f) else colors.surfaceVariant, RoundedCornerShape(6.dp))
-                                        .clickable { MusicManager.playTrackAtIndex(context, idx) }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                        Text(if (isCurrent && MusicManager.isPlaying) ">" else "${idx + 1}.", color = if (isCurrent) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
-                                        Column {
-                                            Text(song.title, color = if (isCurrent) colors.primary else colors.textPrimary, fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
-                                            Text(if (song.isBuiltIn) "Built-In Ambient" else song.artist, color = colors.textSecondary, fontSize = 10.sp, maxLines = 1)
+                        if (MusicManager.playlist.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(colors.bg)
+                                    .padding(12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Keine Songs in der Playlist. Tippe unten auf 'EIGENEN SONG HINZUFÜGEN'.", color = colors.textSecondary, fontSize = 11.sp)
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                MusicManager.playlist.forEachIndexed { idx, song ->
+                                    val isCurrent = idx == MusicManager.currentSongIndex
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isCurrent) colors.primary.copy(alpha = 0.15f) else colors.bg)
+                                            .border(1.dp, if (isCurrent) colors.primary.copy(alpha = 0.5f) else colors.surfaceVariant, RoundedCornerShape(6.dp))
+                                            .clickable { MusicManager.playTrackAtIndex(context, idx) }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(if (isCurrent && MusicManager.isPlaying) ">" else "${idx + 1}.", color = if (isCurrent) colors.primary else colors.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(20.dp))
+                                            Column {
+                                                Text(song.title, color = if (isCurrent) colors.primary else colors.textPrimary, fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                                                Text(song.artist, color = colors.textSecondary, fontSize = 10.sp, maxLines = 1)
+                                            }
                                         }
-                                    }
-                                    if (!song.isBuiltIn) {
                                         IconButton(
                                             onClick = { MusicManager.removeCustomSong(context, song.id) },
                                             modifier = Modifier.size(28.dp)
