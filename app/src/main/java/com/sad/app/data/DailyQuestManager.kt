@@ -1,4 +1,4 @@
-﻿package com.sad.app.data
+package com.sad.app.data
 
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -59,6 +59,42 @@ object DailyQuestManager {
     private fun weekKey(): String {
         val cal = Calendar.getInstance()
         return "${cal.get(Calendar.YEAR)}_W${cal.get(Calendar.WEEK_OF_YEAR)}"
+    }
+
+    fun formatTimeUntilDailyReset(): String {
+        val now = System.currentTimeMillis()
+        val nextReset = todayStart() + 24 * 60 * 60 * 1000L
+        val diff = (nextReset - now).coerceAtLeast(0L)
+        val hours = diff / (1000 * 60 * 60)
+        val minutes = (diff / (1000 * 60)) % 60
+        val seconds = (diff / 1000) % 60
+        return String.format(java.util.Locale.US, "%02dh %02dm %02ds", hours, minutes, seconds)
+    }
+
+    fun formatTimeUntilWeeklyReset(): String {
+        val now = System.currentTimeMillis()
+        val calNext = Calendar.getInstance()
+        calNext.firstDayOfWeek = Calendar.MONDAY
+        calNext.set(Calendar.HOUR_OF_DAY, 0)
+        calNext.set(Calendar.MINUTE, 0)
+        calNext.set(Calendar.SECOND, 0)
+        calNext.set(Calendar.MILLISECOND, 0)
+
+        val dayOfWeek = calNext.get(Calendar.DAY_OF_WEEK)
+        var daysUntilMonday = (Calendar.MONDAY - dayOfWeek + 7) % 7
+        if (daysUntilMonday == 0 && now >= calNext.timeInMillis) {
+            daysUntilMonday = 7
+        }
+        calNext.add(Calendar.DAY_OF_YEAR, daysUntilMonday)
+        val diff = (calNext.timeInMillis - now).coerceAtLeast(0L)
+        val days = diff / (1000 * 60 * 60 * 24)
+        val hours = (diff / (1000 * 60 * 60)) % 24
+        val minutes = (diff / (1000 * 60)) % 60
+        return if (days > 0) {
+            "${days}d ${hours}h ${minutes}m"
+        } else {
+            String.format(java.util.Locale.US, "%02dh %02dm", hours, minutes)
+        }
     }
 
     // ─── 100 DAILY QUEST TEMPLATES ──────────────────────────────────────────

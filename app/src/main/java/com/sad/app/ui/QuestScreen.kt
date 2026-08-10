@@ -347,6 +347,18 @@ fun QuestScreen(refreshKey: Int = 0) {
     // Stats: Rarity-Breakdown retroaktiv aus DB
     var rarityBreakdown by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
 
+    // Live Countdowns
+    var dailyCountdown  by remember { mutableStateOf(DailyQuestManager.formatTimeUntilDailyReset()) }
+    var weeklyCountdown by remember { mutableStateOf(DailyQuestManager.formatTimeUntilWeeklyReset()) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            dailyCountdown  = DailyQuestManager.formatTimeUntilDailyReset()
+            weeklyCountdown = DailyQuestManager.formatTimeUntilWeeklyReset()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+
     // Daily/Weekly Quests laden
     LaunchedEffect(refreshKey) {
         withContext(Dispatchers.IO) {
@@ -386,10 +398,16 @@ fun QuestScreen(refreshKey: Int = 0) {
         // ── Tagesaufgaben
         item {
             Spacer(Modifier.height(4.dp))
-            Text("TAGESAUFGABEN", color = colors.accent, fontSize = 11.sp,
-                letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("TAGESAUFGABEN", color = colors.accent, fontSize = 11.sp,
+                    letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                Text("Reset in $dailyCountdown", color = colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.height(4.dp))
-            Text("Zurueckgesetzt um Mitternacht", color = colors.textSecondary, fontSize = 10.sp)
         }
         val daily = DailyQuestManager.dailyQuests
         if (daily.isEmpty()) {
@@ -412,10 +430,16 @@ fun QuestScreen(refreshKey: Int = 0) {
         // ── Wochenaufgaben
         item {
             Spacer(Modifier.height(8.dp))
-            Text("WOCHENAUFGABEN", color = colors.primary, fontSize = 11.sp,
-                letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("WOCHENAUFGABEN", color = colors.primary, fontSize = 11.sp,
+                    letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+                Text("Reset in $weeklyCountdown", color = colors.textSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            }
             Spacer(Modifier.height(4.dp))
-            Text("Zurueckgesetzt jeden Montag", color = colors.textSecondary, fontSize = 10.sp)
         }
         val weekly = DailyQuestManager.weeklyQuests
         if (weekly.isEmpty()) {
