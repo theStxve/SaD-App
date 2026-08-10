@@ -59,6 +59,7 @@ data class PlayerProfile(
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
             val current = prefs.getFloat("total_distance_meters", 0f)
             prefs.edit().putFloat("total_distance_meters", current + meters).apply()
+            DailyQuestManager.trackDistance(context, meters)
         }
 
         fun setPlayerName(context: Context, name: String) {
