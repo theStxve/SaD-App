@@ -22,6 +22,17 @@ data class AddonMeta(
     val fileType: String = "db" // "db" oder "json"
 )
 
+data class GlobalAddonRule(
+    val iconColor: String? = null,
+    val minZoom: Float? = null,
+    val rarity: String? = null
+)
+
+data class AddonLoadResult(
+    val places: List<PlaceEntity>,
+    val globalRules: List<GlobalAddonRule>
+)
+
 object AddonManager {
     private const val PREFS_KEY = "addon_manager_prefs"
     private const val ADDONS_LIST_KEY = "addons_list"
@@ -171,7 +182,13 @@ object AddonManager {
     }
 
     fun loadAllAddonPlaces(context: Context): List<PlaceEntity> {
+        return loadAllAddonData(context).places
+    }
+
+    fun loadAllAddonData(context: Context): AddonLoadResult {
         val allAddonPlaces = mutableListOf<PlaceEntity>()
+        val globalRules = mutableListOf<GlobalAddonRule>()
+
         for (addon in installedAddons) {
             if (!addon.isEnabled) continue
             val file = File(addon.filePath)
@@ -183,23 +200,50 @@ object AddonManager {
                     val jsonArray = JSONArray(jsonStr)
                     for (i in 0 until jsonArray.length()) {
                         val obj = jsonArray.getJSONObject(i)
-                        val place = PlaceEntity(
-                                osm_id = obj.optString("osm_id", "addon_${addon.id}_$i"),
+
+                        val osmId = obj.optString("osm_id", "")
+                        val isOverrideAll = obj.optBoolean("override_all", false) ||
+                                            obj.optBoolean("override_all_color", false) ||
+                                            osmId == "*" ||
+                                            obj.optString("target") == "all"
+
+                        val iconColor = obj.optString("iconColor").ifBlank { null }
+                        val minZoom = if (obj.has("minZoom")) obj.getDouble("minZoom").toFloat() else null
+                        val rarity = obj.optString("rarity").ifBlank { null }
+
+                        if (isOverrideAll) {
+                            globalRules.add(
+                                GlobalAddonRule(
+                                    iconColor = iconColor,
+                                    minZoom = minZoom,
+                                    rarity = rarity
+                                )
+                            )
+                        }
+
+                        val lat = obj.optDouble("lat", 0.0)
+                        val lon = obj.optDouble("lon", 0.0)
+
+                        // Nur als einzelner Ort hinzufügen wenn lat/lon vorhanden und nicht 0
+                        if (lat != 0.0 && lon != 0.0) {
+                            val place = PlaceEntity(
+                                osm_id = if (osmId.isNotBlank() && osmId != "*") osmId else "addon_${addon.id}_$i",
                                 name = obj.optString("name", "Unbekannter Ort"),
                                 category = obj.optString("category", "Dungeon"),
                                 type = obj.optString("type", "addon"),
-                                rarity = obj.optString("rarity", "common"),
-                                lat = obj.getDouble("lat"),
-                                lon = obj.getDouble("lon")
+                                rarity = rarity ?: "common",
+                                lat = lat,
+                                lon = lon
                             ).also { p ->
                                 p.description = obj.optString("description").ifBlank { null }
                                 p.lore = obj.optString("lore").ifBlank { null }
                                 p.xpReward = if (obj.has("xpReward")) obj.getInt("xpReward") else null
                                 p.questHint = obj.optString("questHint").ifBlank { null }
-                                p.iconColor = obj.optString("iconColor").ifBlank { null }
-                                p.minZoom = if (obj.has("minZoom")) obj.getDouble("minZoom").toFloat() else null
+                                p.iconColor = iconColor
+                                p.minZoom = minZoom
                             }
                             allAddonPlaces.add(place)
+                        }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -230,7 +274,7 @@ object AddonManager {
                 }
             }
         }
-        return allAddonPlaces
+        return AddonLoadResult(allAddonPlaces, globalRules)
     }
 
     fun exportPlacesToJson(context: Context, places: List<PlaceEntity>, uri: Uri): Result<Int> {

@@ -31,4 +31,13 @@ data class PlaceEntity(
     @Ignore var questHint: String? = null
     @Ignore var iconColor: String? = null
     @Ignore var minZoom: Float? = null
+
+    fun copyAddonFieldsFrom(other: PlaceEntity) {
+        if (other.description != null) this.description = other.description
+        if (other.lore != null) this.lore = other.lore
+        if (other.xpReward != null) this.xpReward = other.xpReward
+        if (other.questHint != null) this.questHint = other.questHint
+        if (other.iconColor != null) this.iconColor = other.iconColor
+        if (other.minZoom != null) this.minZoom = other.minZoom
+    }
 }

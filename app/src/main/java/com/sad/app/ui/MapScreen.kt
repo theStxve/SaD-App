@@ -175,11 +175,11 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
             exploredCenters = saved.map { ExploredPoint(GeoPoint(it.lat, it.lon), radiusMeters = it.radius) }
         }
 
-        // Caching für Addon Places um wiederholtes IO-Lesen bei jedem GPS-Tick zu vermeiden
-        var cachedAddonPlaces by remember { mutableStateOf<List<PlaceEntity>>(emptyList()) }
+        // Caching für Addon Data um wiederholtes IO-Lesen bei jedem GPS-Tick zu vermeiden
+        var cachedAddonData by remember { mutableStateOf<com.sad.app.data.AddonLoadResult?>(null) }
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
-                cachedAddonPlaces = com.sad.app.data.AddonManager.loadAllAddonPlaces(context)
+                cachedAddonData = com.sad.app.data.AddonManager.loadAllAddonData(context)
             }
         }
 
@@ -187,38 +187,65 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
             newGeoPoint: GeoPoint,
             vIds: Set<String>,
             showGlobalVisited: Boolean,
-            addonPlaces: List<PlaceEntity>
+            addonData: com.sad.app.data.AddonLoadResult?
         ): List<PlaceEntity> {
+            val addonPlaces = addonData?.places ?: emptyList()
+            val globalRules = addonData?.globalRules ?: emptyList()
+
             val rawPlaces = db.placeDao().getPlacesInArea(
                 newGeoPoint.latitude - 0.015, newGeoPoint.latitude + 0.015,
                 newGeoPoint.longitude - 0.015, newGeoPoint.longitude + 0.015
             )
-            val results = FloatArray(1)
+            val distResults = FloatArray(1)
             val mainFiltered = rawPlaces.filter { place ->
-                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                results[0] <= 1000f
+                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, distResults)
+                distResults[0] <= 1000f
             }
             val addonFiltered = addonPlaces.filter { place ->
-                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, results)
-                results[0] <= 1000f
+                Location.distanceBetween(newGeoPoint.latitude, newGeoPoint.longitude, place.lat, place.lon, distResults)
+                distResults[0] <= 1000f
+            }
+
+            // Falls ein Addon-Ort räumlich (<= 25m) oder per osm_id mit einem DB-Ort übereinstimmt:
+            // Addon-Ort überschreibt den DB-Ort komplett!
+            val remainingMain = mainFiltered.filterNot { mainPlace ->
+                addonFiltered.any { addonPlace ->
+                    if (addonPlace.osm_id == mainPlace.osm_id) true
+                    else {
+                        Location.distanceBetween(mainPlace.lat, mainPlace.lon, addonPlace.lat, addonPlace.lon, distResults)
+                        distResults[0] <= 25f
+                    }
+                }
+            }
+
+            // ADDONS ZUERST, damit Addon-Definitionen immer Vorrang vor DB-Orten haben
+            val combinedList = (addonFiltered + remainingMain).distinctBy { it.osm_id }
+
+            // Globale Addon Overrides anwenden (z.B. override_all = true oder wildcard entries)
+            if (globalRules.isNotEmpty()) {
+                val lastRule = globalRules.last()
+                combinedList.forEach { place ->
+                    if (lastRule.iconColor != null) place.iconColor = lastRule.iconColor
+                    if (lastRule.minZoom != null) place.minZoom = lastRule.minZoom
+                }
             }
 
             val globalVisitedPlaces = if (showGlobalVisited && vIds.isNotEmpty()) {
                 val mainVisited = db.placeDao().getPlacesByIds(vIds.toList())
                 val addonVisited = addonPlaces.filter { it.osm_id in vIds }
-                mainVisited + addonVisited
+                addonVisited + mainVisited
             } else {
                 emptyList()
             }
 
-            return (mainFiltered + addonFiltered + globalVisitedPlaces).distinctBy { it.osm_id }
+            return (combinedList + globalVisitedPlaces).distinctBy { it.osm_id }
         }
 
         // POIs auch bei Einstellungs- oder Visited-Änderungen nachladen
-        LaunchedEffect(userLocation, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonPlaces) {
+        LaunchedEffect(userLocation, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonData) {
             userLocation?.let { loc ->
                 val newPlaces = withContext(Dispatchers.IO) {
-                    loadPlacesForLocation(loc, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonPlaces)
+                    loadPlacesForLocation(loc, visitedIds, mapSettings.showVisitedDungeonsGlobally, cachedAddonData)
                 }
                 places = newPlaces
             }
@@ -252,7 +279,7 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
                                 newGeoPoint,
                                 visitedIds,
                                 MapSettingsManager.current.showVisitedDungeonsGlobally,
-                                cachedAddonPlaces
+                                cachedAddonData
                             )
                             withContext(Dispatchers.Main) {
                                 places = newPlaces
@@ -472,7 +499,7 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
 }
 
 // Helfer für leuchtende custom Icons
-fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false): BitmapDrawable {
+fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false, isVisited: Boolean = false): BitmapDrawable {
     val size = if (isPlayer) 70 else 60 // Größer gemacht für bessere Sichtbarkeit
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -482,19 +509,19 @@ fun createNeonMarker(context: Context, color: Int, isPlayer: Boolean = false): B
         isAntiAlias = true
         this.color = color
         style = Paint.Style.FILL
-        setShadowLayer(22f, 0f, 0f, color) // Stärkerer Neon Glow
+        setShadowLayer(if (isVisited) 10f else 22f, 0f, 0f, color) // Stärkerer Neon Glow für unbesucht
     }
     
     // Hellerer Kern für Dungeons
     val corePaint = Paint().apply {
         isAntiAlias = true
-        this.color = Color.WHITE
+        this.color = if (isVisited) Color.DKGRAY else Color.WHITE
         style = Paint.Style.FILL
     }
     
     val strokePaint = Paint().apply {
         isAntiAlias = true
-        this.color = Color.WHITE
+        this.color = if (isVisited) Color.GRAY else Color.WHITE
         style = Paint.Style.STROKE
         strokeWidth = if (isPlayer) 4f else 2.5f
     }
@@ -540,10 +567,11 @@ fun OSMMapView(
 
     // Cache für individuelle Addon-Farben (iconColor Feld) – verhindert Bitmap-Neuerstellung bei jedem Frame
     val customIconCache = remember { mutableMapOf<String, BitmapDrawable?>() }
-    fun customIconFor(hex: String): BitmapDrawable? {
-        return customIconCache.getOrPut(hex) {
+    fun customIconFor(hex: String, isVisited: Boolean): BitmapDrawable? {
+        val cacheKey = "$hex-$isVisited"
+        return customIconCache.getOrPut(cacheKey) {
             try {
-                createNeonMarker(context, Color.parseColor(hex), false)
+                createNeonMarker(context, Color.parseColor(hex), isPlayer = false, isVisited = isVisited)
             } catch (e: IllegalArgumentException) {
                 null // Ungültiger Hex-Wert → Fallback auf Rarity-Farbe
             }
@@ -637,15 +665,16 @@ fun OSMMapView(
                 }
                 if (skipMarker) return@forEach
 
-                // iconColor aus Addon hat Vorrang – Fallback auf Rarity wenn null oder ungültig
+                // iconColor aus Addon hat Vorrang (zieht auch bei besuchten Orten in angepasster Optik)
                 val cachedIcon = when {
-                    isVisited -> clearedIcon
-                    !place.iconColor.isNullOrBlank() -> customIconFor(place.iconColor!!) ?: when (place.rarity) {
-                        "epic" -> epicIcon
-                        "rare" -> rareIcon
-                        "uncommon" -> uncommonIcon
+                    !place.iconColor.isNullOrBlank() -> customIconFor(place.iconColor!!, isVisited) ?: when {
+                        isVisited -> clearedIcon
+                        place.rarity == "epic" -> epicIcon
+                        place.rarity == "rare" -> rareIcon
+                        place.rarity == "uncommon" -> uncommonIcon
                         else -> normalIcon
                     }
+                    isVisited -> clearedIcon
                     place.rarity == "epic" -> epicIcon
                     place.rarity == "rare" -> rareIcon
                     place.rarity == "uncommon" -> uncommonIcon

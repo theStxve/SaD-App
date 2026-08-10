@@ -400,10 +400,38 @@ fun ModdingGuideSection(colors: AppColors) {
                 GuideCodeBlock(gameplayJson, colors)
                 Spacer(Modifier.height(8.dp))
                 GuideFieldRow("xpReward", "Int", "XP beim Entdecken. Standard: common=50 uncommon=150 rare=300 epic=500", colors)
-                GuideFieldRow("iconColor", "String", "Hex-Farbe des Markers z.B. #FF8C00 fuer Orange", colors)
+                GuideFieldRow("iconColor", "String", "Hex-Farbe des Markers z.B. #FF8C00 fuer Orange, #FF0000 fuer Rot", colors)
                 GuideFieldRow("minZoom", "Double", "Marker erst ab diesem Zoom sichtbar. 10-12=weit weg 14-16=Nahbereich", colors)
                 Spacer(Modifier.height(6.dp))
                 CopyButton(gameplayJson, context, colors)
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // Akkordeon: Massen-Override / Alle Rot machen
+            GuideAccordion(
+                title = "Massen-Override (Alle Dungeons Rot)",
+                subtitle = "override_all / iconColor fuer alle existierenden Orte",
+                isExpanded = expandedSection == "override",
+                colors = colors,
+                accentColor = Color(0xFFFF0000),
+                onClick = { expandedSection = if (expandedSection == "override") null else "override" }
+            ) {
+                val overrideJson = """[
+  {
+    "override_all": true,
+    "iconColor": "#FF0000"
+  }
+]"""
+                GuideCodeBlock(overrideJson, colors)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Fuer Massen-Anpassungen: Ein Addon mit 'override_all': true und 'iconColor': '#FF0000' ueberschreibt die Farben ALLER Dungeons auf der Karte mit Knallrot!",
+                    color = colors.textPrimary,
+                    fontSize = 11.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                CopyButton(overrideJson, context, colors)
             }
 
             Spacer(Modifier.height(6.dp))
