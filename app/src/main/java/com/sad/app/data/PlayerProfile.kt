@@ -11,11 +11,16 @@ data class PlayerProfile(
     val visitedDungeons: Int,
     val nightExploredCount: Int,
     val morningExploredCount: Int,
+    val totalDistanceMeters: Float,
+    val streakDays: Int,
     val title: String,
     val unlockedAchievements: Set<String>
 ) {
     val displayName: String
         get() = playerName.ifBlank { "Agent_$level" }
+
+    val totalDistanceKm: Float
+        get() = totalDistanceMeters / 1000f
 
     companion object {
         fun load(context: Context): PlayerProfile {
@@ -26,6 +31,14 @@ data class PlayerProfile(
             val dungeons = prefs.getInt("visited_dungeons", 0)
             val nightExplored = prefs.getInt("night_explored_count", 0)
             val morningExplored = prefs.getInt("morning_explored_count", 0)
+
+            // Rueckwirkende Distanz-Schaetzung (150m pro erkundetem Bereich + 1.2km pro Dungeon)
+            val trackedMeters = prefs.getFloat("total_distance_meters", 0f)
+            val estimatedMeters = (explored * 150f) + (dungeons * 1200f)
+            val totalDistanceMeters = maxOf(trackedMeters, estimatedMeters)
+
+            val streakDays = prefs.getInt("streak_days", if (dungeons > 0 || explored > 0) 1 else 0)
+
             val level = (xp / 500) + 1
             val title = when {
                 level >= 500 -> "Gott-Status"
@@ -38,7 +51,14 @@ data class PlayerProfile(
                 else         -> "Neuling"
             }
             val unlockedAchievements = prefs.getStringSet("unlocked_achievements", emptySet()) ?: emptySet()
-            return PlayerProfile(playerName, xp, level, explored, dungeons, nightExplored, morningExplored, title, unlockedAchievements)
+            return PlayerProfile(playerName, xp, level, explored, dungeons, nightExplored, morningExplored, totalDistanceMeters, streakDays, title, unlockedAchievements)
+        }
+
+        fun addDistanceMeters(context: Context, meters: Float) {
+            if (meters <= 0) return
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            val current = prefs.getFloat("total_distance_meters", 0f)
+            prefs.edit().putFloat("total_distance_meters", current + meters).apply()
         }
 
         fun setPlayerName(context: Context, name: String) {

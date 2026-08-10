@@ -1,4 +1,4 @@
-﻿package com.sad.app.ui
+package com.sad.app.ui
 
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
@@ -78,6 +78,11 @@ val ALL_QUESTS = listOf(
 fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors: AppColors) {
     var expanded by remember { mutableStateOf(false) }
 
+    val kmFormatted = String.format(java.util.Locale.US, "%.1f km", profile.totalDistanceKm)
+    val avgXpPerDungeon = if (profile.visitedDungeons > 0) profile.xp / profile.visitedDungeons else 0
+    val kmPerDungeon = if (profile.visitedDungeons > 0) profile.totalDistanceKm / profile.visitedDungeons else 0f
+    val kmPerDungeonFormatted = String.format(java.util.Locale.US, "%.2f km", kmPerDungeon)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,11 +108,19 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
 
         Spacer(Modifier.height(10.dp))
 
-        // Immer sichtbar: Kern-Stats
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatPill("${profile.xp} XP", colors.gold, colors)
-            StatPill("${profile.exploredCount} Bereiche", colors.primary, colors)
-            StatPill("${profile.visitedDungeons} Dungeons", colors.accent, colors)
+        // Immer sichtbar: Haupt-Pills (Strecke, Bereiche, Dungeons)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatPill("🚶 $kmFormatted", colors.primary, colors)
+            StatPill("◈ ${profile.exploredCount} Bereiche", colors.accent, colors)
+            StatPill("⚔ ${profile.visitedDungeons} Dungeons", colors.gold, colors)
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // Immer sichtbar: XP & Rate
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatPill("★ ${profile.xp} XP Gesamt", colors.gold, colors)
+            StatPill("Ø $avgXpPerDungeon XP/Dungeon", colors.textSecondary, colors)
         }
 
         if (expanded) {
@@ -130,13 +143,14 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
             Divider(color = colors.surfaceVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(12.dp))
 
-            // Tageszeit-Stats
-            Text("ERKUNDUNGSZEITEN", color = colors.textSecondary, fontSize = 10.sp,
+            // Effizienz & Tageszeiten
+            Text("EFFIZIENZ & ZEITEN", color = colors.textSecondary, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatPill("${profile.nightExploredCount} Nacht", Color(0xFF4444FF), colors)
-                StatPill("${profile.morningExploredCount} Morgen", Color(0xFFFF8C00), colors)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                StatPill("Ø $kmPerDungeonFormatted / Dungeon", colors.primary, colors)
+                StatPill("🌙 ${profile.nightExploredCount} Nacht", Color(0xFF8888FF), colors)
+                StatPill("🌅 ${profile.morningExploredCount} Morgen", Color(0xFFFF8C00), colors)
             }
         }
     }

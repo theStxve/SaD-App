@@ -101,20 +101,22 @@ class LocationTrackingService : Service() {
             PlayerProfile.incrementExplored(this@LocationTrackingService)
 
             lastProcessedLocation?.let { lastLoc ->
-                if (isConnectionMode) {
-                    val lastLat = lastLoc.latitude + latOffset
-                    val lastLon = lastLoc.longitude + lonOffset
-                    val results = FloatArray(1)
-                    Location.distanceBetween(lastLat, lastLon, lat, lon, results)
-                    val dist = results[0].toDouble()
-                    if (dist > stepMeters) {
-                        val stepsCount = (dist / stepMeters).toInt()
-                        for (i in 1 until stepsCount) {
-                            val frac = i.toDouble() / stepsCount
-                            val iLat = lastLat + frac * (lat - lastLat)
-                            val iLon = lastLon + frac * (lon - lastLon)
-                            gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
-                        }
+                val lastLat = lastLoc.latitude + latOffset
+                val lastLon = lastLoc.longitude + lonOffset
+                val results = FloatArray(1)
+                Location.distanceBetween(lastLat, lastLon, lat, lon, results)
+                val dist = results[0]
+                if (dist in 2f..500f) {
+                    PlayerProfile.addDistanceMeters(this@LocationTrackingService, dist)
+                }
+
+                if (isConnectionMode && dist > stepMeters) {
+                    val stepsCount = (dist / stepMeters).toInt()
+                    for (i in 1 until stepsCount) {
+                        val frac = i.toDouble() / stepsCount
+                        val iLat = lastLat + frac * (lat - lastLat)
+                        val iLon = lastLon + frac * (lon - lastLon)
+                        gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
                     }
                 }
             }
