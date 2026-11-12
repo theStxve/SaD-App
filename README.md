@@ -1,126 +1,178 @@
-# ⌬ SAD - Stadt Als Dungeon
+<p align="center">
+  <img src="docs/banner.svg" alt="SAD – Stadt Als Dungeon" width="100%">
+</p>
 
-> **Status:** Underground Exploration Protocol [ACTIVE]  
-> **Environment:** Real-World Urban Dungeon
+<p align="center">
+  <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android 8.0+">
+  <img src="https://img.shields.io/badge/Kotlin-1.9-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin 1.9">
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
+  <img src="https://img.shields.io/badge/Karten-OpenStreetMap-7EBC6F?style=for-the-badge&logo=openstreetmap&logoColor=white" alt="OpenStreetMap">
+</p>
 
-**SAD (Stadt Als Dungeon)** ist ein Gamification-Experiment, das deine reale Umgebung in ein düsteres Cyberpunk-RPG verwandelt. Die App nutzt GPS-Daten, um echte Orte in "Dungeons" zu transformieren und lässt dich deine Stadt erkunden, wie du es noch nie zuvor getan hast.
-
----
-
-## Kern-Features
-
-- **Aktiver Radar:** Tracke deinen Standort in Echtzeit und entdecke verborgene Dungeons in deiner Nähe.
-- **Fog of War:** Die Karte ist in Dunkelheit gehüllt. Nur dort, wo du physisch warst, wird die Welt dauerhaft enthüllt.
-- **Dungeon-System:** Entdecke "Common", "Rare" und "Epic" Dungeons basierend auf realen OpenStreetMap-Daten.
-- **P2P-Netzwerk (Gerüchte):** Triff andere Spieler in der echten Welt und tausche automatisch verschlüsselte Gerüchte über Fundorte via Google Nearby aus – mit "Auf Karte orten" und Löschen-Funktion.
-- **Addon Hub & KI-Modding:** Eigener Tab für Community-Dungeon-Packs (JSON & DB), inklusive integriertem Modding-Guide und KI-Master-Prompt per Knopfdruck für ChatGPT/Claude/Gemini.
-- **Custom Addon Styling:** Eigene Markerfarben (`iconColor`), Zoom-Sichtbarkeitsgrenzen (`minZoom`), Story-Lore, Quests und benutzerdefinierte XP per JSON.
-- **App-Themes:** 4 visuelle Modi (Legacy Cyberpunk, Light, Inferno, Matrix) mit voller Farb-Anpassung aller Screens.
-- **Hintergrundmusik & Custom Songs:** Integrierte Audio-Engine mit automatischem Synth-Ambient, eigener Song-Playlist (.mp3, .wav, .ogg, .flac), Lautstärkeregler, Loop/Shuffle-Modi und sanftem Fade-In/Out beim Wechsel in den Vordergrund/Hintergrund.
-- **Achievement-Protokoll:** Sammle Erfolge für nächtliche Erkundungen, das Teilen deines Fortschritts oder das Hacken des Systems.
-- **Offline Modus:** Zur Erstbestimmung der Position beim Start der App wird Internet empfohlen, abseits davon läuft die App ohne Netz.
-- **Level System:** Levelaufstiege mit dem Sammeln von XP und Freischalten von neuen Profiltiteln durchs Spielen.
-- **Backup & Restore:** Spielstand als JSON-Datei exportieren und auf neuen Geräten wiederherstellen.
+<p align="center">
+  <b>Deine Stadt ist ein Dungeon.</b> SAD verwandelt echte Orte aus OpenStreetMap in Dungeons,<br>
+  hüllt die Karte in Nebel und belohnt dich für jeden Meter, den du wirklich gehst.
+</p>
 
 ---
 
-## Addon Hub & Community-Modding
+<img src="app/src/main/ic_launcher-playstore.png" alt="SAD App-Icon" width="120" align="right">
 
-SAD besitzt einen eigenen **Addon Hub Tab** zur einfachen Verwaltung und Erstellung eigener Dungeon-Packs:
+## Worum geht's?
 
-- **JSON & DB Import:** Unterstützt sowohl `.json` Addon-Packs als auch `.db` Datenbank-Dateien.
-- **Pack-Verwaltung:** Einzelne Packs per Toggle aktivieren/deaktivieren oder löschen.
-- **Creator Exporter:** Alle in der App entdeckten Dungeons als wiederverwendbares JSON-Addon für Freunde exportieren.
-- **Interaktiver Modding Guide:** Einklappbare Sektionen erklären Pflichtfelder, Raritäten, Lore/Story, Gameplay-Attribute und Best Practices.
-- **KI-Master-Prompt Button:** Kopiert per Knopfdruck einen vollständigen Prompt in die Zwischenablage. KI-Tools wie ChatGPT, Claude oder Gemini können so sofort funktionierende JSON-Packs für jede beliebige Stadt generieren.
-- **Erweiterte Addon-Attribute:**
-  - `iconColor`: Hex-Farbe für den Kartenmarker (z.B. `#FF8C00`)
-  - `minZoom`: Erst ab diesem Zoom-Level sichtbar (z.B. `14.0`)
-  - `description`, `lore`, `questHint`, `xpReward`
+**SAD (Stadt Als Dungeon)** ist ein Location-based Game im Cyberpunk-Look. Die App trackt deine Position, deckt die Karte nur dort auf, wo du physisch warst, und lässt dich Ruinen, Bunker, Burgen und Lost Places in deiner Umgebung „looten“. Kein Server, kein Account, alles läuft lokal auf dem Gerät.
 
----
+<p align="center">
+  <img src="docs/gameplay-loop.svg" alt="Gameplay-Loop: Rausgehen, Nebel lüften, Dungeon looten, Leveln, Quests" width="100%">
+</p>
 
-## Settings & Personalisierung
+## Dungeon-Raritäten
 
-- **Audio & Hintergrundmusik:** Ein-/Ausschalten der BGM, Lautstärke-Slider, Playlist-Modus (Einzel-Loop, Reihenfolge, Shuffle), Now-Playing HUD Card und eigener Audio-Picker für eigene Songs.
-- **Design-Themes:** Auswählbar zwischen *Legacy*, *Light*, *Inferno* und *Matrix* – alle Farben und Kartenelemente passen sich nahtlos an.
-- **Tab-Sichtbarkeit:** Ausblenden/Einblenden einzelner Bottom-Bar-Tabs (Quests, Gerüchte, Addon Hub, Erfolge).
-- **Operative-Profilkarte:** Visuelles Cyberpunk-Sharing mit Tech-Corner Brackets, Glow-Effekten, Orbit-Ringen und "STATUS ONLINE"-Badge.
-- **Karten-Anpassung:** Präzisionsmodus (20m-Radius), Verbindungsmodus (GPS-Linien), Nebel-Deckkraft, Kontrast/Helligkeit und Dark-Mode-Invertierung.
-- **Datensicherung:** Export & Import des kompletten Spielstands als `.json`.
+Jeder Dungeon basiert auf einem echten OSM-Objekt. Wie selten er ist, hängt von seinen Tags ab:
+
+<p align="center">
+  <img src="docs/rarities.svg" alt="Raritäten: Common +25 XP, Uncommon +50 XP, Rare +100 XP, Epic +200 XP" width="100%">
+</p>
+
+> Die Farben der Raritäten lassen sich in den Einstellungen frei anpassen.
 
 ---
 
-## Tech-Stack
+## Features
 
-- **Sprache:** Kotlin
-- **UI:** Jetpack Compose
-- **Datenbank:** Room SQLite (Lokale Persistency & RAM-Caching)
-- **Karten:** OSMDroid (OpenStreetMap Integration)
-- **Kommunikation:** Google Nearby Connections (Dezentraler Datenabgleich)
-- **Hintergrund-Logik:** Android Foreground Services für dauerhaftes Tracking und Aufdecken der Karte
+| | |
+|---|---|
+| 🛰️ **Aktiver Radar** | Foreground-Service trackt deinen Standort und lootet Dungeons auch bei gesperrtem Bildschirm. |
+| 🌫️ **Fog of War** | Die Karte ist dunkel. Nur Gebiete, in denen du warst, bleiben dauerhaft sichtbar. Optional mit Präzisionsmodus (20 m) und Verbindungslinien. |
+| 🏰 **Dungeon-System** | Common, Uncommon, Rare und Epic, generiert aus echten OpenStreetMap-Daten. |
+| ⭐ **Level, Titel & Erfolge** | XP sammeln, vom *Neuling* zum *Gott-Status* aufsteigen und Achievements freischalten (z. B. für nächtliche Erkundungen). |
+| 📋 **Daily & Weekly Quests** | Täglich 3 neue Quests aus einem Pool von 100, wöchentlich 3 schwere aus 50, dazu Statistiken (Strecke, Bereiche, Raritäten). |
+| 📡 **Gerüchte (P2P)** | Triff andere Spieler in echt: Über Google Nearby (Bluetooth/WLAN) tauscht ihr automatisch Gerüchte über Fundorte aus, ganz ohne Server. |
+| 🧩 **Addon Hub** | Community-Dungeon-Packs als `.json` oder `.db` importieren, an- und ausschalten und eigene Funde als Pack exportieren. |
+| 🤖 **KI-Modding** | Ein Knopfdruck kopiert einen Master-Prompt, mit dem ChatGPT, Claude oder Gemini fertige Addon-Packs für jede Stadt erzeugen. |
+| 🎨 **Themes** | Legacy Cyberpunk, Light, Inferno und Matrix. Alle Screens und Kartenelemente passen sich an. |
+| 🎵 **Hintergrundmusik** | Eigene Playlist (.mp3, .wav, .ogg, .flac) mit Loop/Shuffle, Lautstärke und sanftem Fade beim App-Wechsel. |
+| 💾 **Backup & Restore** | Spielstand als JSON exportieren und auf einem neuen Gerät wiederherstellen. |
+| 🪪 **Profilkarte** | Teilbare Operative-Karte mit Level, Stats und Glow-Effekten. |
 
 ---
 
-## Disclaimer (Haftungsausschluss)
+## Installation
 
-SAD ist ein Spiel für Entdecker. Dennoch gilt:
-1. **Betreten auf eigene Gefahr:** Betrete niemals Privatgelände oder gefährliche Areale (Lost Places) ohne Erlaubnis.
-2. **Sicherheit geht vor:** Achte auf deine Umgebung, besonders bei nächtlichen Erkundungen.
-3. **Haftung:** Der Entwickler übernimmt keinerlei Haftung für Schäden, Unfälle oder rechtliche Konsequenzen, die durch die Nutzung der App entstehen.
-4. GPS-Daten werden nur zum Bestimmen der Freischaltpositionen für die Dungeons und den Nebel genutzt. Die App funktioniert auch offline.
+### Variante A: APK
+Lade die aktuelle APK aus den [Releases](../../releases) herunter und installiere sie (Installation aus unbekannten Quellen erlauben).
+
+### Variante B: Selbst bauen
+
+```bash
+git clone https://github.com/theStxve/SaD-App.git
+cd SaD-App
+```
+
+1. Kartendaten erzeugen (siehe [Dungeon-Schmiede](#map-data-pipeline-dungeon-schmiede)). Ohne `app/src/main/assets/places.db` startet die App ohne Dungeons.
+2. Projekt in Android Studio öffnen.
+3. Auf ein Gerät mit Android 8.0+ flashen.
+
+> **Hinweis:** Für das erste Laden der Kartenkacheln braucht die App Internet. Danach funktionieren Tracking, Nebel und Dungeons auch offline, bereits geladene Kartenbereiche bleiben im Cache.
 
 ---
 
 ## Map Data Pipeline (Dungeon-Schmiede)
 
-Wir behandeln die ganze Stadt als einen einzigen großen Dungeon. Um deine Region zu importieren, nutze die automatisierte Pipeline im `scripts/`-Ordner.
+Die ganze Stadt ist ein einziger großer Dungeon. Um deine Region zu importieren, nutze die Pipeline im [`scripts/`](scripts/)-Ordner.
 
-> **Voraussetzung:** [Python 3.9+](https://www.python.org/downloads/) muss installiert sein ("Add Python to PATH" beim Setup ankreuzen).
+> **Voraussetzung:** [Python 3.9+](https://www.python.org/downloads/) (unter Windows beim Setup *„Add Python to PATH“* ankreuzen).
 
-### 1. Karte herunterladen
-Lade eine `.osm.pbf` Datei für deine Region (z.B. ein Bundesland) von [Geofabrik](https://download.geofabrik.de/europe/germany.html) herunter und lege sie als `map.osm.pbf` in den `scripts/`-Ordner.
+**1. Karte herunterladen:** eine `.osm.pbf` für deine Region (z. B. ein Bundesland) von [Geofabrik](https://download.geofabrik.de/europe/germany.html) laden und als `scripts/map.osm.pbf` ablegen.
 
-### 2. Schmieden (Windows)
-Doppelklick auf:
-```
-scripts/process_map.bat
-```
-Das Skript installiert alle Abhängigkeiten automatisch (`pip install osmium`) und erstellt die Datenbank.
+**2. Schmieden:**
 
-### 2. Schmieden (Linux / macOS)
 ```bash
+# Windows: Doppelklick auf scripts/process_map.bat (installiert osmium automatisch)
+
+# Linux / macOS
 pip install osmium
 python scripts/process_map.py
 ```
 
----
-
-## Eigene Addons (Dungeon-Packs) erstellen
-
-Du kannst Addons entweder per **JSON** (empfohlen & KI-gestützt) oder per **.db Pipeline** erstellen.
-
-### Methode A: JSON-Addon (Empfohlen & KI-gestützt)
-1. Öffne die SAD-App und navigiere zum **Addon Hub** Tab.
-2. Tippe im Modding Guide auf **KI-PROMPT KOPIEREN**.
-3. Füge den Prompt in ChatGPT, Claude oder Gemini ein und gib deine Wunschstadt an.
-4. Speichere das generierte JSON als Datei ab und tippe im Addon Hub auf **IMPORTIEREN**.
-
-### Methode B: Python .db Pipeline
-1. Lade eine `.osm.pbf` von [Geofabrik](https://download.geofabrik.de/) herunter.
-2. Führe aus: `python scripts/process_map.py scripts/deine_region.osm.pbf scripts/pack.db`
-3. Übertrage `pack.db` auf dein Smartphone und importiere sie im Addon Hub.
+Das Skript filtert alle passenden OSM-Objekte (Ruinen, Bunker, Burgen, verlassene Bahnstrecken, Museen …), weist ihnen eine Rarität zu und schreibt sie nach `app/src/main/assets/places.db`.
 
 ---
 
-## Installation & Setup
+## Eigene Addons (Dungeon-Packs)
 
-1. Repository klonen
-2. Kartendatei herunterladen (siehe oben) → `scripts/map.osm.pbf`
-3. `scripts/process_map.bat` ausführen (oder `python scripts/process_map.py`)
-4. Projekt in Android Studio öffnen und auf das Gerät flashen
+### Methode A: JSON-Addon (empfohlen, KI-gestützt)
+1. In der App den **Addon Hub** öffnen.
+2. Im Modding Guide auf **KI-PROMPT KOPIEREN** tippen.
+3. Prompt in ChatGPT, Claude oder Gemini einfügen und die Wunschstadt angeben.
+4. Das erzeugte JSON speichern und im Addon Hub auf **IMPORTIEREN** tippen.
+
+<details>
+<summary><b>Beispiel-Pack anzeigen</b></summary>
+
+```json
+[
+  {
+    "osm_id": "custom_001",
+    "name": "Alter Wasserturm",
+    "lat": 52.5163,
+    "lon": 13.3777,
+    "rarity": "epic",
+    "type": "tower",
+    "description": "Seit 1987 stillgelegt.",
+    "lore": "Man sagt, nachts brennt oben noch Licht.",
+    "questHint": "Finde den Eingang auf der Nordseite.",
+    "xpReward": 300,
+    "iconColor": "#FF8C00",
+    "minZoom": 14.0
+  }
+]
+```
+
+| Feld | Pflicht | Beschreibung |
+|---|:---:|---|
+| `name`, `lat`, `lon` | ✅ | Name und Position des Dungeons |
+| `rarity` | | `common`, `uncommon`, `rare` oder `epic` |
+| `iconColor` | | Hex-Farbe für den Kartenmarker |
+| `minZoom` | | Marker erst ab diesem Zoom-Level sichtbar |
+| `description`, `lore`, `questHint`, `xpReward` | | Story und Gameplay-Extras |
+
+Ein Eintrag mit `"osm_id": "*"` (ohne Koordinaten) wirkt als globale Regel, z. B. um allen Markern eine Farbe zu geben.
+</details>
+
+### Methode B: `.db`-Pipeline
+```bash
+python scripts/process_map.py scripts/deine_region.osm.pbf scripts/pack.db
+```
+`pack.db` aufs Smartphone übertragen und im Addon Hub importieren.
 
 ---
 
-*"Die Stadt ist kein Ort, sie ist ein Dungeon. Geh raus und erobere sie."*
+## Tech-Stack
 
+| Bereich | Technologie |
+|---|---|
+| Sprache | Kotlin |
+| UI | Jetpack Compose, Material 3 |
+| Datenbank | Room / SQLite (Orte aus Assets + separater Spielstand) |
+| Karte | osmdroid (OpenStreetMap) |
+| Standort | Google Play Services Fused Location, Foreground Service |
+| P2P | Google Nearby Connections |
+| Datenpipeline | Python + pyosmium |
+
+---
+
+## Disclaimer
+
+SAD ist ein Spiel für Entdecker. Trotzdem gilt:
+
+1. **Betreten auf eigene Gefahr:** Betritt niemals Privatgelände oder gefährliche Areale (Lost Places) ohne Erlaubnis.
+2. **Sicherheit geht vor:** Achte auf deine Umgebung, besonders bei nächtlichen Erkundungen und im Straßenverkehr.
+3. **Haftung:** Der Entwickler übernimmt keinerlei Haftung für Schäden, Unfälle oder rechtliche Konsequenzen, die durch die Nutzung der App entstehen.
+4. **Datenschutz:** GPS-Daten bleiben auf deinem Gerät und werden nur für Nebel und Dungeons genutzt. Beim Gerüchte-Austausch wird der Ort eines von dir besuchten Dungeons an Spieler in der Nähe gesendet.
+
+Kartendaten © [OpenStreetMap](https://www.openstreetmap.org/copyright)-Mitwirkende, verfügbar unter der ODbL.
+
+---
+
+<p align="center"><i>„Die Stadt ist kein Ort, sie ist ein Dungeon. Geh raus und erobere sie.“</i></p>
