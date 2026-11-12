@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +44,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.sad.app.data.MusicManager
+import com.sad.app.notifications.DungeonNotifier
 import org.osmdroid.util.GeoPoint
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
@@ -73,16 +75,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_ADVERTISE,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.NEARBY_WIFI_DEVICES
-            )
-        )
+        DungeonNotifier.createChannel(this)
+
+        // OSM Tile Usage Policy: eindeutiger User-Agent, sonst drohen Sperren der Tile-Server
+        org.osmdroid.config.Configuration.getInstance().apply {
+            load(applicationContext, getSharedPreferences("osm", MODE_PRIVATE))
+            userAgentValue = "$packageName/${packageManager.getPackageInfo(packageName, 0).versionName}"
+        }
+
+        val permissions = buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(Manifest.permission.BLUETOOTH_SCAN)
+                add(Manifest.permission.BLUETOOTH_ADVERTISE)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                add(Manifest.permission.POST_NOTIFICATIONS) // sonst keine Dungeon-Benachrichtigungen
+            }
+        }
+        permissionLauncher.launch(permissions.toTypedArray())
 
         setContent {
             SADApp()
@@ -188,8 +202,11 @@ fun SADApp() {
     }
 
     CompositionLocalProvider(LocalAppColors provides colors) {
-        Box(modifier = Modifier.fillMaxSize().background(colors.bg)) {
-            Box(modifier = Modifier.fillMaxSize().padding(bottom = 68.dp)) {
+        // targetSdk 35 erzwingt Edge-to-Edge: Hintergrund läuft hinter die Systemleisten,
+        // Inhalte werden per Insets davon freigehalten.
+        Box(modifier = Modifier.fillMaxSize().background(colors.bg).safeDrawingPadding()) {
+            // clipToBounds: osmdroid zeichnet sonst über seine Grenzen hinaus in die Statusleiste
+            Box(modifier = Modifier.fillMaxSize().padding(bottom = 68.dp).clipToBounds()) {
                 when (selectedScreen) {
                     Screen.Map          -> MapScreen(targetLocation = targetMapLocation)
                     Screen.Quests       -> QuestScreen(globalRefreshTrigger)
