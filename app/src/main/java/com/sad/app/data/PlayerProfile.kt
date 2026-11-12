@@ -23,6 +23,13 @@ data class PlayerProfile(
         get() = totalDistanceMeters / 1000f
 
     companion object {
+        /**
+         * Gemeinsamer Lock für alle Read-Modify-Write-Zugriffe auf "player_profile".
+         * Service (IO-Thread) und UI schreiben parallel – ohne Lock gehen Updates verloren.
+         * Wird auch vom [DailyQuestManager] benutzt (reentrant, daher kein Deadlock).
+         */
+        val LOCK = Any()
+
         fun load(context: Context): PlayerProfile {
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
             val playerName = prefs.getString("player_name", "") ?: ""
@@ -59,25 +66,25 @@ data class PlayerProfile(
 
         fun addDistanceMeters(context: Context, meters: Float) {
             if (meters <= 0) return
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            var current = prefs.getFloat("total_distance_meters", -1f)
-            if (current < 0f) {
-                val explored = prefs.getInt("explored_count", 0)
-                val dungeons = prefs.getInt("visited_dungeons", 0)
-                current = (explored * 150f) + (dungeons * 1200f)
+            synchronized(LOCK) {
+                val prefs = prefs(context)
+                var current = prefs.getFloat("total_distance_meters", -1f)
+                if (current < 0f) {
+                    val explored = prefs.getInt("explored_count", 0)
+                    val dungeons = prefs.getInt("visited_dungeons", 0)
+                    current = (explored * 150f) + (dungeons * 1200f)
+                }
+                prefs.edit().putFloat("total_distance_meters", current + meters).apply()
+                DailyQuestManager.trackDistance(context, meters)
             }
-            val updated = current + meters
-            prefs.edit().putFloat("total_distance_meters", updated).apply()
-            DailyQuestManager.trackDistance(context, meters)
         }
 
         fun setPlayerName(context: Context, name: String) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            prefs.edit().putString("player_name", name.trim()).apply()
+            prefs(context).edit().putString("player_name", name.trim()).apply()
         }
-        
-        fun unlockAchievement(context: Context, id: String) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+
+        fun unlockAchievement(context: Context, id: String) = synchronized(LOCK) {
+            val prefs = prefs(context)
             val current = prefs.getStringSet("unlocked_achievements", emptySet()) ?: emptySet()
             if (!current.contains(id)) {
                 val newSet = current.toMutableSet().apply { add(id) }
@@ -86,70 +93,75 @@ data class PlayerProfile(
             }
         }
 
-        fun addXP(context: Context, amount: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getInt("xp", 0)
-            val newXp = (current + amount).coerceAtLeast(0)
+        /**
+         * @param countsForQuests false für XP, die selbst aus Quests stammen (Belohnungen)
+         *   oder per Dev-Menü vergeben werden – sonst würden XP-Quests sich selbst füttern.
+         */
+        fun addXP(context: Context, amount: Int, countsForQuests: Boolean = true) = synchronized(LOCK) {
+            val prefs = prefs(context)
+            val newXp = (prefs.getInt("xp", 0) + amount).coerceAtLeast(0)
             prefs.edit().putInt("xp", newXp).apply()
-            if (amount > 0) {
-                DailyQuestManager.trackDungeonVisit(context, amount)
+            if (amount > 0 && countsForQuests) {
+                DailyQuestManager.trackXpEarned(context, amount)
             }
         }
 
         fun subtractXP(context: Context, amount: Int) {
-            addXP(context, -amount)
+            addXP(context, -amount, countsForQuests = false)
         }
 
         fun setXP(context: Context, newXP: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            prefs.edit().putInt("xp", newXP.coerceAtLeast(0)).apply()
+            prefs(context).edit().putInt("xp", newXP.coerceAtLeast(0)).apply()
         }
 
         fun setExploredCount(context: Context, count: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            prefs.edit().putInt("explored_count", count.coerceAtLeast(0)).apply()
+            prefs(context).edit().putInt("explored_count", count.coerceAtLeast(0)).apply()
         }
 
-        fun subtractExplored(context: Context, amount: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getInt("explored_count", 0)
-            setExploredCount(context, current - amount)
+        fun subtractExplored(context: Context, amount: Int) = synchronized(LOCK) {
+            setExploredCount(context, prefs(context).getInt("explored_count", 0) - amount)
         }
 
         fun setVisitedDungeons(context: Context, count: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            prefs.edit().putInt("visited_dungeons", count.coerceAtLeast(0)).apply()
+            prefs(context).edit().putInt("visited_dungeons", count.coerceAtLeast(0)).apply()
         }
 
-        fun subtractDungeons(context: Context, amount: Int) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getInt("visited_dungeons", 0)
-            setVisitedDungeons(context, current - amount)
+        fun subtractDungeons(context: Context, amount: Int) = synchronized(LOCK) {
+            setVisitedDungeons(context, prefs(context).getInt("visited_dungeons", 0) - amount)
         }
 
-        fun incrementExplored(context: Context) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getInt("explored_count", 0)
-            prefs.edit().putInt("explored_count", current + 1).apply()
-            
+        fun incrementExplored(context: Context) = synchronized(LOCK) {
+            val prefs = prefs(context)
+            val edit = prefs.edit().putInt("explored_count", prefs.getInt("explored_count", 0) + 1)
+
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             if (hour >= 23 || hour < 4) {
-                val night = prefs.getInt("night_explored_count", 0)
-                prefs.edit().putInt("night_explored_count", night + 1).apply()
+                edit.putInt("night_explored_count", prefs.getInt("night_explored_count", 0) + 1)
             } else if (hour in 5..8) {
-                val morning = prefs.getInt("morning_explored_count", 0)
-                prefs.edit().putInt("morning_explored_count", morning + 1).apply()
+                edit.putInt("morning_explored_count", prefs.getInt("morning_explored_count", 0) + 1)
             }
+            edit.apply()
 
             DailyQuestManager.trackExplore(context)
             addXP(context, 10)
         }
 
-        fun incrementDungeons(context: Context) {
-            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-            val current = prefs.getInt("visited_dungeons", 0)
-            prefs.edit().putInt("visited_dungeons", current + 1).apply()
-            addXP(context, 50)
+        /** Zählt nur den Dungeon. Die XP vergibt der Aufrufer (abhängig von der Rarität). */
+        fun incrementDungeons(context: Context) = synchronized(LOCK) {
+            val prefs = prefs(context)
+            prefs.edit().putInt("visited_dungeons", prefs.getInt("visited_dungeons", 0) + 1).apply()
         }
+
+        fun incrementReceivedRumors(context: Context) = synchronized(LOCK) {
+            val prefs = prefs(context)
+            prefs.edit().putInt("received_rumors_count", prefs.getInt("received_rumors_count", 0) + 1).apply()
+        }
+
+        fun markShared(context: Context) {
+            prefs(context).edit().putBoolean("has_shared", true).apply()
+        }
+
+        private fun prefs(context: Context): SharedPreferences =
+            context.applicationContext.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
     }
 }

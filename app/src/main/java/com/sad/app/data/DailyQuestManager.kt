@@ -36,29 +36,40 @@ object DailyQuestManager {
     var dailyQuests  by mutableStateOf<List<DailyQuestState>>(emptyList()); private set
     var weeklyQuests by mutableStateOf<List<DailyQuestState>>(emptyList()); private set
 
-    fun todayStart(): Long {
-        val cal = Calendar.getInstance()
+    /**
+     * ISO-8601-Kalender: Woche beginnt Montag, KW 1 ist die Woche mit dem ersten Donnerstag.
+     * Unabhängig von der Geräte-Locale (vorher sprang z.B. US-Locale sonntags auf den
+     * nächsten Montag, und KW 1 im Dezember kollidierte mit KW 1 im Januar).
+     */
+    internal fun isoCalendar(nowMs: Long = System.currentTimeMillis()): Calendar =
+        Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.MONDAY
+            minimalDaysInFirstWeek = 4
+            timeInMillis = nowMs
+        }
+
+    fun todayStart(nowMs: Long = System.currentTimeMillis()): Long {
+        val cal = isoCalendar(nowMs)
         cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
         cal.set(Calendar.SECOND, 0);      cal.set(Calendar.MILLISECOND, 0)
         return cal.timeInMillis
     }
 
-    fun weekStart(): Long {
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0);      cal.set(Calendar.MILLISECOND, 0)
+    fun weekStart(nowMs: Long = System.currentTimeMillis()): Long {
+        val cal = isoCalendar(todayStart(nowMs))
+        val daysSinceMonday = (cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
+        cal.add(Calendar.DAY_OF_YEAR, -daysSinceMonday)
         return cal.timeInMillis
     }
 
-    private fun todayKey(): String {
-        val cal = Calendar.getInstance()
+    internal fun todayKey(nowMs: Long = System.currentTimeMillis()): String {
+        val cal = isoCalendar(nowMs)
         return "${cal.get(Calendar.YEAR)}_${cal.get(Calendar.DAY_OF_YEAR)}"
     }
 
-    private fun weekKey(): String {
-        val cal = Calendar.getInstance()
-        return "${cal.get(Calendar.YEAR)}_W${cal.get(Calendar.WEEK_OF_YEAR)}"
+    internal fun weekKey(nowMs: Long = System.currentTimeMillis()): String {
+        val cal = isoCalendar(nowMs)
+        return "${cal.weekYear}_W${cal.get(Calendar.WEEK_OF_YEAR)}"
     }
 
     fun formatTimeUntilDailyReset(): String {
@@ -73,20 +84,8 @@ object DailyQuestManager {
 
     fun formatTimeUntilWeeklyReset(): String {
         val now = System.currentTimeMillis()
-        val calNext = Calendar.getInstance()
-        calNext.firstDayOfWeek = Calendar.MONDAY
-        calNext.set(Calendar.HOUR_OF_DAY, 0)
-        calNext.set(Calendar.MINUTE, 0)
-        calNext.set(Calendar.SECOND, 0)
-        calNext.set(Calendar.MILLISECOND, 0)
-
-        val dayOfWeek = calNext.get(Calendar.DAY_OF_WEEK)
-        var daysUntilMonday = (Calendar.MONDAY - dayOfWeek + 7) % 7
-        if (daysUntilMonday == 0 && now >= calNext.timeInMillis) {
-            daysUntilMonday = 7
-        }
-        calNext.add(Calendar.DAY_OF_YEAR, daysUntilMonday)
-        val diff = (calNext.timeInMillis - now).coerceAtLeast(0L)
+        val next = isoCalendar(weekStart(now)).apply { add(Calendar.DAY_OF_YEAR, 7) }.timeInMillis
+        val diff = (next - now).coerceAtLeast(0L)
         val days = diff / (1000 * 60 * 60 * 24)
         val hours = (diff / (1000 * 60 * 60)) % 24
         val minutes = (diff / (1000 * 60)) % 60
@@ -350,6 +349,8 @@ object DailyQuestManager {
     suspend fun refresh(context: Context, gameDb: GameDatabase, placeDb: AppDatabase) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+        cleanupOldKeys(context)
+
         val daySeed  = todayKey().hashCode()
         val weekSeed = weekKey().hashCode()
 
@@ -427,7 +428,8 @@ object DailyQuestManager {
         if (!quest.isClaimable) return 0
 
         prefs.edit().putBoolean(KEY_CLAIMED_PREFIX + questId, true).apply()
-        PlayerProfile.addXP(context, quest.quest.xpReward)
+        // Belohnungs-XP zählen NICHT für XP-Quests (sonst füttern die sich selbst)
+        PlayerProfile.addXP(context, quest.quest.xpReward, countsForQuests = false)
 
         dailyQuests  = dailyQuests.map  { if (it.quest.id == questId) it.copy(claimed = true) else it }
         weeklyQuests = weeklyQuests.map { if (it.quest.id == questId) it.copy(claimed = true) else it }
@@ -435,50 +437,74 @@ object DailyQuestManager {
         return quest.quest.xpReward
     }
 
-    fun trackDungeonVisit(context: Context, xpEarned: Int) {
+    fun trackXpEarned(context: Context, xpEarned: Int) = synchronized(PlayerProfile.LOCK) {
         val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
         val todayK = todayKey()
         val weekK  = weekKey()
-        val curDayXP  = prefs.getInt("xp_earned_today_$todayK", 0)
-        val curWeekXP = prefs.getInt("xp_earned_week_$weekK", 0)
         prefs.edit()
-            .putInt("xp_earned_today_$todayK", curDayXP + xpEarned)
-            .putInt("xp_earned_week_$weekK",   curWeekXP + xpEarned)
+            .putInt("xp_earned_today_$todayK", prefs.getInt("xp_earned_today_$todayK", 0) + xpEarned)
+            .putInt("xp_earned_week_$weekK",   prefs.getInt("xp_earned_week_$weekK", 0) + xpEarned)
             .apply()
     }
 
-    fun trackExplore(context: Context) {
+    fun trackExplore(context: Context) = synchronized(PlayerProfile.LOCK) {
         val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
         val todayK = todayKey()
         val weekK  = weekKey()
-        val curDay  = prefs.getInt("explored_today_$todayK", 0)
-        val curWeek = prefs.getInt("explored_week_$weekK", 0)
 
-        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         val edit = prefs.edit()
-            .putInt("explored_today_$todayK", curDay + 1)
-            .putInt("explored_week_$weekK",   curWeek + 1)
+            .putInt("explored_today_$todayK", prefs.getInt("explored_today_$todayK", 0) + 1)
+            .putInt("explored_week_$weekK",   prefs.getInt("explored_week_$weekK", 0) + 1)
 
         if (hour >= 23 || hour < 4) {
-            val night = prefs.getInt("night_today_$todayK", 0)
-            edit.putInt("night_today_$todayK", night + 1)
+            edit.putInt("night_today_$todayK", prefs.getInt("night_today_$todayK", 0) + 1)
         } else if (hour in 5..8) {
-            val morning = prefs.getInt("morning_today_$todayK", 0)
-            edit.putInt("morning_today_$todayK", morning + 1)
+            edit.putInt("morning_today_$todayK", prefs.getInt("morning_today_$todayK", 0) + 1)
         }
         edit.apply()
     }
 
     fun trackDistance(context: Context, meters: Float) {
         if (meters <= 0) return
-        val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+        synchronized(PlayerProfile.LOCK) {
+            val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+            val todayK = todayKey()
+            val weekK  = weekKey()
+            prefs.edit()
+                .putFloat("dist_today_$todayK", prefs.getFloat("dist_today_$todayK", 0f) + meters)
+                .putFloat("dist_week_$weekK",   prefs.getFloat("dist_week_$weekK", 0f) + meters)
+                .apply()
+        }
+    }
+
+    private val DAILY_PREFIXES = listOf("explored_today_", "xp_earned_today_", "dist_today_", "night_today_", "morning_today_")
+    private val WEEKLY_PREFIXES = listOf("explored_week_", "xp_earned_week_", "dist_week_")
+
+    /** Entfernt Tages-/Wochenzähler vergangener Perioden, damit die Prefs nicht endlos wachsen. */
+    private fun cleanupOldKeys(context: Context) = synchronized(PlayerProfile.LOCK) {
         val todayK = todayKey()
-        val weekK  = weekKey()
-        val curDayM  = prefs.getFloat("dist_today_$todayK", 0f)
-        val curWeekM = prefs.getFloat("dist_week_$weekK", 0f)
-        prefs.edit()
-            .putFloat("dist_today_$todayK", curDayM + meters)
-            .putFloat("dist_week_$weekK",   curWeekM + meters)
-            .apply()
+        val weekK = weekKey()
+
+        val profile = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
+        val pEdit = profile.edit()
+        var changed = false
+        for (key in profile.all.keys) {
+            val stale = DAILY_PREFIXES.any { key.startsWith(it) && key != it + todayK } ||
+                        WEEKLY_PREFIXES.any { key.startsWith(it) && key != it + weekK }
+            if (stale) { pEdit.remove(key); changed = true }
+        }
+        if (changed) pEdit.apply()
+
+        val quests = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val qEdit = quests.edit()
+        changed = false
+        for (key in quests.all.keys) {
+            if (!key.startsWith(KEY_CLAIMED_PREFIX)) continue
+            val id = key.removePrefix(KEY_CLAIMED_PREFIX)
+            val current = id.startsWith("daily_${todayK}_") || id.startsWith("weekly_${weekK}_")
+            if (!current) { qEdit.remove(key); changed = true }
+        }
+        if (changed) qEdit.apply()
     }
 }
