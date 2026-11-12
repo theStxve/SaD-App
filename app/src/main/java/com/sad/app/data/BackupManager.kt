@@ -12,12 +12,14 @@ object BackupManager {
     suspend fun exportBackup(context: Context, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val root = JSONObject()
-            root.put("version", 1)
+            root.put("version", 2)
             root.put("timestamp", System.currentTimeMillis())
 
             // 1. SharedPreferences (player_profile)
             val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
             val profileObj = JSONObject().apply {
+                put("player_name", prefs.getString("player_name", "") ?: "")
+                put("total_distance_meters", prefs.getFloat("total_distance_meters", 0f).toDouble())
                 put("xp", prefs.getInt("xp", 0))
                 put("explored_count", prefs.getInt("explored_count", 0))
                 put("visited_dungeons", prefs.getInt("visited_dungeons", 0))
@@ -87,6 +89,8 @@ object BackupManager {
                 val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
                 val editor = prefs.edit()
                 
+                if (profileObj.has("player_name")) editor.putString("player_name", profileObj.getString("player_name"))
+                if (profileObj.has("total_distance_meters")) editor.putFloat("total_distance_meters", profileObj.getDouble("total_distance_meters").toFloat())
                 if (profileObj.has("xp")) editor.putInt("xp", profileObj.getInt("xp"))
                 if (profileObj.has("explored_count")) editor.putInt("explored_count", profileObj.getInt("explored_count"))
                 if (profileObj.has("visited_dungeons")) editor.putInt("visited_dungeons", profileObj.getInt("visited_dungeons"))

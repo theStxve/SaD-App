@@ -341,7 +341,7 @@ fun AchievementsScreen(onRefreshRequested: () -> Unit = {}) {
                             Button(
                                 onClick = { 
                                     val amount = xpInput.toIntOrNull() ?: 0
-                                    PlayerProfile.addXP(context, amount)
+                                    PlayerProfile.addXP(context, amount, countsForQuests = false)
                                     internalRefreshTrigger++
                                     onRefreshRequested()
                                 },

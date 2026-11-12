@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.*
 import com.sad.app.data.GameDatabase
+import com.sad.app.data.PlayerProfile
 import com.sad.app.data.Rumor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,14 @@ class RumorSyncManager(
     private val onStatusChanged: (String) -> Unit
 ) {
     private val SERVICE_ID = "com.sad.app.rumors"
+
+    private companion object {
+        const val MAX_PAYLOAD_BYTES = 4 * 1024
+        const val MAX_MESSAGE_LEN = 280
+        const val MAX_NAME_LEN = 60
+        /** Nur Dungeons teilen, die älter als das sind – verrät nicht, wo man gerade ist. */
+        const val SHARE_MIN_AGE_MS = 6 * 60 * 60 * 1000L
+    }
     private val scope = CoroutineScope(Dispatchers.IO)
     
     // Generiere einen anonymen Spielernamen für dieses Gerät
@@ -38,10 +47,12 @@ class RumorSyncManager(
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
-            payload.asBytes()?.let { bytes ->
-                val json = String(bytes, StandardCharsets.UTF_8)
-                parseAndSaveRumor(json)
+            val bytes = payload.asBytes() ?: return
+            if (bytes.size > MAX_PAYLOAD_BYTES) {
+                Log.w("RumorSync", "Payload von $endpointId zu groß (${bytes.size} B) – verworfen")
+                return
             }
+            parseAndSaveRumor(String(bytes, StandardCharsets.UTF_8))
         }
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {}
     }
@@ -110,8 +121,10 @@ class RumorSyncManager(
             val xp = prefs.getInt("xp", 0)
             val dungeonCount = prefs.getInt("visited_dungeons", 0)
             
-            // Hole einen zufälligen bereits besuchten Dungeon
-            val visitedDungeons = gameDb.visitedDungeonDao().getAll()
+            // Zufälligen bereits besuchten Dungeon holen – aber keinen frischen,
+            // damit Fremde in der Nähe nicht ablesen können, wo man gerade herkommt.
+            val cutoff = System.currentTimeMillis() - SHARE_MIN_AGE_MS
+            val visitedDungeons = gameDb.visitedDungeonDao().getAll().filter { it.visitedAt < cutoff }
             val appDb = com.sad.app.data.AppDatabase.getDatabase(context)
 
             val json = JSONObject().apply {
@@ -161,16 +174,25 @@ class RumorSyncManager(
     private fun parseAndSaveRumor(json: String) {
         try {
             val obj = JSONObject(json)
+            val lat = obj.optDouble("lat", 0.0)
+            val lon = obj.optDouble("lon", 0.0)
+            // Eingehende Daten stammen von beliebigen Geräten in der Nähe → validieren
+            if (lat.isNaN() || lon.isNaN() || lat !in -90.0..90.0 || lon !in -180.0..180.0) {
+                Log.w("RumorSync", "Ungültige Koordinaten verworfen")
+                return
+            }
             val rumor = Rumor(
-                placeName = obj.getString("placeName"),
-                placeType = obj.getString("placeType"),
-                lat = obj.getDouble("lat"),
-                lon = obj.getDouble("lon"),
-                message = obj.getString("message"),
-                fromPlayer = obj.getString("fromPlayer")
+                placeName = obj.optString("placeName", "Unbekannt").take(MAX_NAME_LEN),
+                placeType = obj.optString("placeType", "info").take(MAX_NAME_LEN),
+                lat = lat,
+                lon = lon,
+                message = obj.optString("message", "").take(MAX_MESSAGE_LEN),
+                fromPlayer = obj.optString("fromPlayer", "Unbekannt").take(MAX_NAME_LEN)
             )
+            if (rumor.message.isBlank()) return
             scope.launch {
                 gameDb.rumorDao().insert(rumor)
+                PlayerProfile.incrementReceivedRumors(context)
             }
             onStatusChanged("💬 Neues Gerücht erhalten!")
         } catch (e: Exception) {

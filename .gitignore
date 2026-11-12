@@ -25,3 +25,7 @@ scripts/*.osm.pbf
 scripts/*.osm
 scripts/*.geojson
 scripts/*.db
+
+# Build-Logs
+build_output.txt
+*.log

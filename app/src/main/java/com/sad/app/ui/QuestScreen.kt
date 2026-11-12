@@ -108,25 +108,26 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
 
         Spacer(Modifier.height(10.dp))
 
-        // Immer sichtbar: Haupt-Pills (Strecke, Bereiche, Dungeons)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatPill(kmFormatted, colors.primary, colors)
-            StatPill("${profile.exploredCount} Bereiche", colors.accent, colors)
-            StatPill("${profile.visitedDungeons} Dungeons", colors.gold, colors)
+        // Row 1 (3 Spalten) - Strecke, Bereiche, Dungeons
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatMetricCard(kmFormatted, "Strecke", colors.primary, colors, Modifier.weight(1f))
+            StatMetricCard("${profile.exploredCount}", "Bereiche", colors.accent, colors, Modifier.weight(1f))
+            StatMetricCard("${profile.visitedDungeons}", "Dungeons", colors.gold, colors, Modifier.weight(1f))
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Immer sichtbar: XP & Rate
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            StatPill("${profile.xp} XP Gesamt", colors.gold, colors)
-            StatPill("Ø $avgXpPerDungeon XP/Dungeon", colors.textSecondary, colors)
+        // Row 2 (3 Spalten) - XP, Rate, Effizienz
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatMetricCard("${profile.xp}", "XP Gesamt", colors.gold, colors, Modifier.weight(1f))
+            StatMetricCard("$avgXpPerDungeon", "Ø XP / Dungeon", colors.textSecondary, colors, Modifier.weight(1f))
+            StatMetricCard(kmPerDungeonFormatted, "Ø km / Dungeon", colors.primary, colors, Modifier.weight(1f))
         }
 
         if (expanded) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Divider(color = colors.surfaceVariant.copy(alpha = 0.5f))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
             // Rarity-Breakdown
             Text("NACH RARITAET", color = colors.textSecondary, fontSize = 10.sp,
@@ -139,33 +140,56 @@ fun StatsCard(profile: PlayerProfile, rarityBreakdown: Map<String, Int>, colors:
                 RarityStatBox("Common",   rarityBreakdown["common"] ?: 0,   Color(0xFF555555), colors, Modifier.weight(1f))
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Divider(color = colors.surfaceVariant.copy(alpha = 0.5f))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // Effizienz & Tageszeiten
-            Text("EFFIZIENZ & ZEITEN", color = colors.textSecondary, fontSize = 10.sp,
+            // Tageszeiten
+            Text("ERKUNDUNGSZEITEN", color = colors.textSecondary, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                StatPill("Ø $kmPerDungeonFormatted / Dungeon", colors.primary, colors)
-                StatPill("${profile.nightExploredCount} Nacht", Color(0xFF8888FF), colors)
-                StatPill("${profile.morningExploredCount} Morgen", Color(0xFFFF8C00), colors)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatMetricCard("${profile.nightExploredCount}", "Nacht (23-04h)", Color(0xFF8888FF), colors, Modifier.weight(1f))
+                StatMetricCard("${profile.morningExploredCount}", "Morgen (05-08h)", Color(0xFFFF8C00), colors, Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun StatPill(text: String, color: Color, colors: AppColors) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(color.copy(alpha = 0.12f))
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+private fun StatMetricCard(
+    value: String,
+    label: String,
+    accentColor: Color,
+    colors: AppColors,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(accentColor.copy(alpha = 0.08f))
+            .border(1.dp, accentColor.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(text, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = value,
+            color = accentColor,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            color = colors.textSecondary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
     }
 }
 

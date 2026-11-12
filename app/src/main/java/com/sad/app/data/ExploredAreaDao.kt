@@ -12,11 +12,10 @@ interface ExploredAreaDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(area: ExploredArea)
-    
-    // Prüfe ob der Punkt schon erkundet wurde (innerhalb von ~50m)
-    // Das verhindert, dass wir tausende identische Einträge speichern
-    @Query("SELECT COUNT(*) FROM explored_areas WHERE ABS(lat - :lat) < 0.0005 AND ABS(lon - :lon) < 0.0005")
-    suspend fun isNearbyExplored(lat: Double, lon: Double): Int
+
+    // Bounding-Box-Abfrage (nutzt den Index auf lat/lon statt Full Table Scan)
+    @Query("SELECT COUNT(*) FROM explored_areas WHERE lat BETWEEN :minLat AND :maxLat AND lon BETWEEN :minLon AND :maxLon")
+    suspend fun countInBox(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(areas: List<ExploredArea>)

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-label="SAD – Stadt Als Dungeon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070b18"/>
+      <stop offset="1" stop-color="#0d1630"/>
+    </linearGradient>
+    <radialGradient id="radarGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#00e5ff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00e5ff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#00e5ff" stop-opacity="0.35"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#00e5ff" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+    <mask id="fogMask">
+      <rect width="1200" height="380" fill="white"/>
+      <g fill="black">
+        <circle cx="760" cy="250" r="46"/>
+        <circle cx="815" cy="215" r="46"/>
+        <circle cx="870" cy="190" r="46"/>
+        <circle cx="930" cy="185" r="46"/>
+        <circle cx="985" cy="160" r="50"/>
+        <circle cx="1040" cy="130" r="46"/>
+      </g>
+    </mask>
+    <clipPath id="frame"><rect width="1200" height="380" rx="22"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="380" fill="url(#bg)"/>
+
+    <!-- Stadtplan (Straßen) -->
+    <g stroke="#00e5ff" stroke-opacity="0.35" stroke-width="2" fill="none">
+      <path d="M640 380 L700 300 L760 250 L870 190 L985 160 L1100 90 L1200 60"/>
+      <path d="M700 0 L720 120 L760 250 L790 380"/>
+      <path d="M880 0 L870 190 L900 380"/>
+      <path d="M640 140 L870 190 L1200 230"/>
+      <path d="M1000 380 L985 160 L1010 0"/>
+      <path d="M1080 380 L1100 90"/>
+      <path d="M640 320 L1200 330"/>
+    </g>
+    <g stroke="#00e5ff" stroke-opacity="0.15" stroke-width="1" fill="none">
+      <path d="M660 60 H860 M940 60 H1180 M660 220 H740 M920 270 H1180 M1120 160 V380 M820 0 V140"/>
+    </g>
+
+    <rect width="1200" height="380" fill="url(#grid)"/>
+
+    <!-- Nebel mit aufgedecktem Pfad -->
+    <rect x="600" width="600" height="380" fill="#05070f" fill-opacity="0.78" mask="url(#fogMask)"/>
+    <g fill="none" stroke="#00e5ff" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="4 6">
+      <circle cx="1040" cy="130" r="46"/>
+    </g>
+
+    <!-- Radar -->
+    <circle cx="1040" cy="130" r="170" fill="url(#radarGlow)"/>
+    <g fill="none" stroke="#00e5ff" stroke-opacity="0.22">
+      <circle cx="1040" cy="130" r="80"/>
+      <circle cx="1040" cy="130" r="130"/>
+      <circle cx="1040" cy="130" r="180"/>
+    </g>
+    <path d="M1040 130 L1210 80 A180 180 0 0 1 1220 150 Z" fill="url(#sweep)"/>
+
+    <!-- Spieler -->
+    <circle cx="1040" cy="130" r="9" fill="#00e5ff" filter="url(#glow)"/>
+    <circle cx="1040" cy="130" r="16" fill="none" stroke="#00e5ff" stroke-opacity="0.6" stroke-width="2"/>
+
+    <!-- Dungeons -->
+    <g filter="url(#glow)">
+      <circle cx="870" cy="190" r="7" fill="#FF00E6"/>
+      <circle cx="985" cy="160" r="6" fill="#FFD700"/>
+      <circle cx="760" cy="250" r="6" fill="#00FF66"/>
+      <circle cx="1110" cy="300" r="6" fill="#FF00E6" fill-opacity="0.35"/>
+      <circle cx="700" cy="90" r="5" fill="#FFD700" fill-opacity="0.35"/>
+    </g>
+
+    <!-- Fade links, damit der Text Platz hat -->
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.42" stop-color="#070b18" stop-opacity="1"/>
+      <stop offset="0.62" stop-color="#070b18" stop-opacity="0"/>
+    </linearGradient>
+    <rect width="1200" height="380" fill="url(#fade)"/>
+
+    <!-- Text -->
+    <text x="64" y="168" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="10" fill="#FF00E6" filter="url(#softglow)" opacity="0.7">SAD</text>
+    <text x="64" y="168" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="10" fill="#ffffff">SAD</text>
+    <text x="68" y="216" font-family="'Consolas', 'SFMono-Regular', Menlo, monospace" font-size="26" letter-spacing="7" fill="#00e5ff">STADT ALS DUNGEON</text>
+    <rect x="68" y="240" width="64" height="3" fill="#FF00E6"/>
+    <text x="68" y="285" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#9fb3d1">Deine echte Stadt als Cyberpunk-RPG.</text>
+    <text x="68" y="315" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" fill="#9fb3d1">Geh raus, lüfte den Nebel, plündere Dungeons.</text>
+  </g>
+  <rect x="1" y="1" width="1198" height="378" rx="21" fill="none" stroke="#00e5ff" stroke-opacity="0.25" stroke-width="2"/>
+</svg>

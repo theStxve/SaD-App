@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="Gameplay-Loop: Laufen, Nebel lüften, Dungeon looten, XP sammeln, Quests abschließen">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#00e5ff"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="300" rx="22" fill="#0a1024"/>
+  <rect x="1" y="1" width="1198" height="298" rx="21" fill="none" stroke="#00e5ff" stroke-opacity="0.2" stroke-width="2"/>
+
+  <text x="600" y="48" text-anchor="middle" font-family="'Consolas', 'SFMono-Regular', Menlo, monospace" font-size="18" letter-spacing="6" fill="#00e5ff">GAMEPLAY LOOP</text>
+
+  <g font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" text-anchor="middle">
+    <!-- 1 GPS -->
+    <g transform="translate(120 150)">
+      <circle r="52" fill="#0f1a38" stroke="#00e5ff" stroke-width="2"/>
+      <g stroke="#00e5ff" stroke-width="2.5" fill="none" filter="url(#glow)">
+        <circle r="8" fill="#00e5ff"/>
+        <circle r="20" stroke-opacity="0.6"/>
+        <circle r="32" stroke-opacity="0.3"/>
+      </g>
+      <text y="90" font-size="19" font-weight="700" fill="#ffffff">Rausgehen</text>
+      <text y="114" font-size="15" fill="#8ea2c4">GPS trackt im Hintergrund</text>
+    </g>
+
+    <!-- 2 Fog -->
+    <g transform="translate(360 150)">
+      <circle r="52" fill="#05070f" stroke="#00e5ff" stroke-width="2"/>
+      <clipPath id="c2"><circle r="50"/></clipPath>
+      <g clip-path="url(#c2)">
+        <g stroke="#00e5ff" stroke-opacity="0.5" stroke-width="2">
+          <path d="M-60 20 L60 -15 M-10 -60 L5 60"/>
+        </g>
+        <circle cx="-14" cy="10" r="22" fill="#00e5ff" fill-opacity="0.12"/>
+        <circle cx="10" cy="-4" r="22" fill="#00e5ff" fill-opacity="0.12"/>
+      </g>
+      <text y="90" font-size="19" font-weight="700" fill="#ffffff">Nebel lüften</text>
+      <text y="114" font-size="15" fill="#8ea2c4">Fog of War, dauerhaft</text>
+    </g>
+
+    <!-- 3 Dungeon -->
+    <g transform="translate(600 150)">
+      <circle r="52" fill="#1a0f30" stroke="#FF00E6" stroke-width="2"/>
+      <g fill="none" stroke="#FF00E6" stroke-width="3" filter="url(#glow)" stroke-linejoin="round">
+        <path d="M-24 26 V-6 H-16 V-16 H-8 V-6 H8 V-16 H16 V-6 H24 V26 Z"/>
+        <path d="M-8 26 V10 A8 8 0 0 1 8 10 V26"/>
+      </g>
+      <text y="90" font-size="19" font-weight="700" fill="#ffffff">Dungeon looten</text>
+      <text y="114" font-size="15" fill="#8ea2c4">automatisch im 25 m Radius</text>
+    </g>
+
+    <!-- 4 XP -->
+    <g transform="translate(840 150)">
+      <circle r="52" fill="#2a2208" stroke="#FFD700" stroke-width="2"/>
+      <text y="12" font-size="34" font-weight="800" fill="#FFD700" filter="url(#glow)">XP</text>
+      <text y="90" font-size="19" font-weight="700" fill="#ffffff">Leveln</text>
+      <text y="114" font-size="15" fill="#8ea2c4">Titel &amp; Erfolge freischalten</text>
+    </g>
+
+    <!-- 5 Quests -->
+    <g transform="translate(1080 150)">
+      <circle r="52" fill="#0b2418" stroke="#00FF66" stroke-width="2"/>
+      <g fill="none" stroke="#00FF66" stroke-width="3" stroke-linecap="round" filter="url(#glow)">
+        <path d="M-18 -14 l6 6 l10 -12"/>
+        <path d="M6 -9 H22"/>
+        <path d="M-18 12 l6 6 l10 -12"/>
+        <path d="M6 17 H22"/>
+      </g>
+      <text y="90" font-size="19" font-weight="700" fill="#ffffff">Quests</text>
+      <text y="114" font-size="15" fill="#8ea2c4">Daily &amp; Weekly</text>
+    </g>
+  </g>
+
+  <g stroke="#00e5ff" stroke-width="2" stroke-dasharray="5 6" marker-end="url(#arrow)">
+    <path d="M182 150 H290"/>
+    <path d="M422 150 H530"/>
+    <path d="M662 150 H770"/>
+    <path d="M902 150 H1010"/>
+  </g>
+</svg>

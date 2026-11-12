@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="230" viewBox="0 0 1200 230" role="img" aria-label="Dungeon-Raritäten: Common 25 XP, Uncommon 50 XP, Rare 100 XP, Epic 200 XP">
+  <defs>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="230" rx="22" fill="#0a1024"/>
+  <rect x="1" y="1" width="1198" height="228" rx="21" fill="none" stroke="#00e5ff" stroke-opacity="0.2" stroke-width="2"/>
+
+  <g font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <!-- Common -->
+    <g transform="translate(40 36)">
+      <rect width="260" height="158" rx="14" fill="#11172a" stroke="#555555" stroke-opacity="0.8" stroke-width="2"/>
+      <circle cx="44" cy="52" r="12" fill="#777777" filter="url(#glow)"/>
+      <text x="72" y="60" font-size="24" font-weight="800" fill="#bbbbbb" letter-spacing="2">COMMON</text>
+      <text x="24" y="112" font-size="38" font-weight="800" fill="#ffffff">+25 <tspan font-size="20" fill="#8ea2c4">XP</tspan></text>
+      <text x="24" y="140" font-size="15" fill="#8ea2c4">Addon-Orte ohne Rarität</text>
+    </g>
+    <!-- Uncommon -->
+    <g transform="translate(320 36)">
+      <rect width="260" height="158" rx="14" fill="#0e1f1a" stroke="#00FF66" stroke-opacity="0.7" stroke-width="2"/>
+      <circle cx="44" cy="52" r="12" fill="#00FF66" filter="url(#glow)"/>
+      <text x="72" y="60" font-size="24" font-weight="800" fill="#00FF66" letter-spacing="2">UNCOMMON</text>
+      <text x="24" y="112" font-size="38" font-weight="800" fill="#ffffff">+50 <tspan font-size="20" fill="#8ea2c4">XP</tspan></text>
+      <text x="24" y="140" font-size="15" fill="#8ea2c4">Museen, Denkmäler, Cafés</text>
+    </g>
+    <!-- Rare -->
+    <g transform="translate(600 36)">
+      <rect width="260" height="158" rx="14" fill="#221d0b" stroke="#FFD700" stroke-opacity="0.7" stroke-width="2"/>
+      <circle cx="44" cy="52" r="12" fill="#FFD700" filter="url(#glow)"/>
+      <text x="72" y="60" font-size="24" font-weight="800" fill="#FFD700" letter-spacing="2">RARE</text>
+      <text x="24" y="112" font-size="38" font-weight="800" fill="#ffffff">+100 <tspan font-size="20" fill="#8ea2c4">XP</tspan></text>
+      <text x="24" y="140" font-size="15" fill="#8ea2c4">Ruinen, Lost Places, Bars</text>
+    </g>
+    <!-- Epic -->
+    <g transform="translate(880 36)">
+      <rect width="280" height="158" rx="14" fill="#250b26" stroke="#FF00E6" stroke-opacity="0.8" stroke-width="2"/>
+      <circle cx="44" cy="52" r="12" fill="#FF00E6" filter="url(#glow)"/>
+      <text x="72" y="60" font-size="24" font-weight="800" fill="#FF00E6" letter-spacing="2">EPIC</text>
+      <text x="24" y="112" font-size="38" font-weight="800" fill="#ffffff">+200 <tspan font-size="20" fill="#8ea2c4">XP</tspan></text>
+      <text x="24" y="140" font-size="15" fill="#8ea2c4">Burgen, Festungen, Bunker</text>
+    </g>
+  </g>
+</svg>

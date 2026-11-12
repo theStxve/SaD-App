@@ -40,8 +40,16 @@ object AddonManager {
     var installedAddons by mutableStateOf<List<AddonMeta>>(emptyList())
         private set
 
+    @Volatile private var initialized = false
+
     fun init(context: Context) {
         installedAddons = loadAddonsList(context)
+        initialized = true
+    }
+
+    /** Für den Hintergrund-Service, der ohne UI (z.B. nach START_STICKY-Neustart) laufen kann. */
+    fun ensureInit(context: Context) {
+        if (!initialized) init(context.applicationContext)
     }
 
     private fun loadAddonsList(context: Context): List<AddonMeta> {
@@ -102,19 +110,29 @@ object AddonManager {
             val addonsDir = File(context.filesDir, "addons").apply { if (!exists()) mkdirs() }
             val addonId = "addon_${System.currentTimeMillis()}"
 
-            // Feststellen ob JSON oder DB
+            // Erst kopieren, dann am Inhalt erkennen ob JSON oder SQLite.
+            // MIME-Type und Uri-Pfad sind bei content://-Uris oft nichtssagend
+            // (z.B. application/octet-stream ohne Dateiendung).
             val contentResolver = context.contentResolver
-            val mimeType = contentResolver.getType(uri) ?: ""
-            val isJson = mimeType.contains("json") || uri.path?.endsWith(".json", ignoreCase = true) == true
+            val tmpFile = File(addonsDir, "$addonId.tmp")
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(tmpFile).use { output -> input.copyTo(output) }
+            } ?: return Result.failure(Exception("Datei konnte nicht gelesen werden"))
+
+            val isJson = when (sniffFileType(tmpFile)) {
+                "json" -> true
+                "db" -> false
+                else -> {
+                    tmpFile.delete()
+                    return Result.failure(Exception("Unbekanntes Format – erwartet wird .json oder .db"))
+                }
+            }
 
             val fileExt = if (isJson) "json" else "db"
             val destFile = File(addonsDir, "$addonId.$fileExt")
-
-            contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
-                }
-            } ?: return Result.failure(Exception("Datei konnte nicht gelesen werden"))
+            if (!tmpFile.renameTo(destFile)) {
+                tmpFile.copyTo(destFile, overwrite = true); tmpFile.delete()
+            }
 
             // Prüfen ob die Datei valide ist und Orte zählen
             val placeCount = if (isJson) countPlacesInJson(destFile) else countPlacesInDb(destFile)
@@ -151,6 +169,18 @@ object AddonManager {
             val updated = installedAddons.filterNot { it.id == addonId }
             saveAddonsList(context, updated)
         }
+    }
+
+    private fun sniffFileType(file: File): String? {
+        val header = ByteArray(16)
+        val read = file.inputStream().use { it.read(header) }
+        if (read >= 15 && String(header, 0, 15, Charsets.US_ASCII) == "SQLite format 3") return "db"
+        val firstChar = file.bufferedReader(Charsets.UTF_8).use { r ->
+            var c = r.read()
+            while (c != -1 && (Character.isWhitespace(c) || c == 0xFEFF)) c = r.read()
+            c
+        }
+        return if (firstChar == '['.code || firstChar == '{'.code) "json" else null
     }
 
     private fun countPlacesInJson(file: File): Int {

@@ -280,6 +280,7 @@ private fun shareProfileImage(context: Context, bitmap: Bitmap, profile: PlayerP
         }
 
         context.startActivity(Intent.createChooser(shareIntent, "PROFILKARTE TEILEN"))
+        com.sad.app.data.PlayerProfile.markShared(context) // schaltet das "social"-Achievement frei
     } catch (e: Exception) {
         e.printStackTrace()
         Toast.makeText(context, "Fehler beim Erstellen der Karte: ${e.message}", Toast.LENGTH_LONG).show()

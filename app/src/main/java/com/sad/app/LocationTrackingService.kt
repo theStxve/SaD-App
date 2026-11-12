@@ -6,20 +6,16 @@ import android.app.Service
 import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
-import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
-import com.sad.app.data.AppDatabase
-import com.sad.app.data.ExploredArea
-import com.sad.app.data.GameDatabase
-import com.sad.app.data.PlayerProfile
-import com.sad.app.data.VisitedDungeon
+import com.sad.app.data.GameEngine
 import com.sad.app.notifications.DungeonNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class LocationTrackingService : Service() {
@@ -32,6 +28,7 @@ class LocationTrackingService : Service() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         createNotificationChannel()
+        DungeonNotifier.createChannel(this)
 
         val notification = NotificationCompat.Builder(this, "location_tracking_channel")
             .setContentTitle("SAD: Radar Aktiv")
@@ -41,11 +38,27 @@ class LocationTrackingService : Service() {
             .setOngoing(true)
             .build()
 
+        // Nach einem START_STICKY-Neustart kann die Berechtigung inzwischen entzogen sein –
+        // startForeground(type=location) würde dann ab Android 14 eine SecurityException werfen.
+        val hasLocation = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!hasLocation) {
+            stopSelf()
+            return
+        }
+
         // Als Foreground Service starten, damit Android ihn nicht tötet
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(1337, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        } else {
-            startForeground(1337, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(1337, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            } else {
+                startForeground(1337, notification)
+            }
+        } catch (e: Exception) {
+            // z.B. ForegroundServiceStartNotAllowedException wenn aus dem Hintergrund gestartet
+            stopSelf()
+            return
         }
         startTracking()
     }
@@ -58,14 +71,14 @@ class LocationTrackingService : Service() {
             setMinUpdateDistanceMeters(5f) // Nur aktualisieren bei echten Bewegungen
         }.build()
 
-        val db = AppDatabase.getDatabase(this)
-        val gameDb = GameDatabase.getDatabase(this)
-
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { location ->
                     serviceScope.launch {
-                        processLocation(location, db, gameDb)
+                        GameEngine.processLocation(
+                            this@LocationTrackingService,
+                            location.latitude, location.longitude, location.time
+                        )
                     }
                 }
             }
@@ -75,85 +88,6 @@ class LocationTrackingService : Service() {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, mainLooper)
         } catch (e: SecurityException) {
             // Permission fehlt (wird in MainActivity angefragt)
-        }
-    }
-
-    private var lastProcessedLocation: Location? = null
-
-    private suspend fun processLocation(location: Location, db: AppDatabase, gameDb: GameDatabase) {
-        val prefs = getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-        val latOffset = prefs.getFloat("lat_offset", 0f)
-        val lonOffset = prefs.getFloat("lon_offset", 0f)
-        
-        val lat = location.latitude + latOffset
-        val lon = location.longitude + lonOffset
-
-        // MapSettings laden
-        val mapPrefs = getSharedPreferences("map_customization_prefs", Context.MODE_PRIVATE)
-        val isConnectionMode = mapPrefs.getBoolean("connectionModeEnabled", false)
-        val isPrecisionMode = mapPrefs.getBoolean("precisionModeEnabled", false)
-        val stepMeters = if (isPrecisionMode) 20.0 else 150.0
-
-        // 0. Distanz IMMER messen (egal ob Bereich schon bekannt ist oder nicht!)
-        lastProcessedLocation?.let { lastLoc ->
-            val lastLat = lastLoc.latitude + latOffset
-            val lastLon = lastLoc.longitude + lonOffset
-            val results = FloatArray(1)
-            Location.distanceBetween(lastLat, lastLon, lat, lon, results)
-            val dist = results[0]
-            if (dist in 2f..500f) {
-                PlayerProfile.addDistanceMeters(this@LocationTrackingService, dist)
-            }
-
-            if (isConnectionMode && dist > stepMeters) {
-                val stepsCount = (dist / stepMeters).toInt()
-                for (i in 1 until stepsCount) {
-                    val frac = i.toDouble() / stepsCount
-                    val iLat = lastLat + frac * (lat - lastLat)
-                    val iLon = lastLon + frac * (lon - lastLon)
-                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = stepMeters))
-                }
-            }
-        }
-        lastProcessedLocation = location
-
-        // 1. Fog of War im Hintergrund aufdecken!
-        val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(lat, lon)
-        if (alreadyExplored == 0) {
-            gameDb.exploredAreaDao().insert(ExploredArea(lat = lat, lon = lon, radius = stepMeters))
-            PlayerProfile.incrementExplored(this@LocationTrackingService)
-        }
-
-        // 2. Dungeons im Hintergrund automatisch looten/entdecken!
-        val rawPlaces = db.placeDao().getPlacesInArea(
-            lat - 0.005, lat + 0.005,
-            lon - 0.005, lon + 0.005
-        )
-        
-        // 30 Meter Toleranz für den Hintergrund (damit man nicht an der Hauswand scheitert)
-        // Im Magnet-Modus auf 500m erhöht
-        val isMagnetMode = prefs.getBoolean("dev_magnet_mode", false)
-        val detectionRadius = if (isMagnetMode) 500f else 30f
-
-        val nearbyDungeons = rawPlaces.filter { place ->
-            val results = FloatArray(1)
-            Location.distanceBetween(lat, lon, place.lat, place.lon, results)
-            results[0] <= detectionRadius 
-        }
-
-        for (dungeon in nearbyDungeons) {
-            val alreadyDone = gameDb.visitedDungeonDao().alreadyVisited(dungeon.osm_id)
-            if (alreadyDone == 0) {
-                val xpReward = when(dungeon.rarity) {
-                    "epic" -> 200; "rare" -> 100; "uncommon" -> 50; else -> 25
-                }
-                gameDb.visitedDungeonDao().insert(VisitedDungeon(osm_id = dungeon.osm_id, xpEarned = xpReward))
-                PlayerProfile.incrementDungeons(this@LocationTrackingService)
-                PlayerProfile.addXP(this@LocationTrackingService, xpReward)
-
-                // Push-Benachrichtigung an den Spieler!
-                DungeonNotifier.notifyDungeonNearby(this@LocationTrackingService, dungeon)
-            }
         }
     }
 
@@ -178,6 +112,9 @@ class LocationTrackingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        if (::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+        serviceScope.cancel()
     }
 }

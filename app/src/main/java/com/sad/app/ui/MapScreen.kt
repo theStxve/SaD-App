@@ -44,13 +44,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.toArgb
 import com.sad.app.data.AppDatabase
-import com.sad.app.data.ExploredArea
+import com.sad.app.data.GameEngine
 import com.sad.app.data.GameDatabase
 import com.sad.app.data.PlaceEntity
 import com.sad.app.data.PlayerProfile
 import com.sad.app.data.Rumor
-import com.sad.app.data.VisitedDungeon
-import com.sad.app.notifications.DungeonNotifier
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -263,8 +261,6 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
                 setWaitForAccurateLocation(false)
             }.build()
 
-            var lastForegroundLocation: GeoPoint? = null
-
             val callback = object : LocationCallback() {
                 override fun onLocationResult(result: LocationResult) {
                     result.lastLocation?.let { location ->
@@ -274,16 +270,23 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
                         
                         val newGeoPoint = GeoPoint(location.latitude + latOffset, location.longitude + lonOffset)
 
-                        // Distanzmessung im Vordergrund
-                        lastForegroundLocation?.let { last ->
-                            val distRes = FloatArray(1)
-                            Location.distanceBetween(last.latitude, last.longitude, newGeoPoint.latitude, newGeoPoint.longitude, distRes)
-                            val dist = distRes[0]
-                            if (dist in 2f..500f) {
-                                PlayerProfile.addDistanceMeters(context, dist)
+                        // Spiel-Logik (Strecke, Nebel, Looten) läuft zentral in der GameEngine –
+                        // derselbe Fix kommt auch beim Service an und wird dort dedupliziert.
+                        coroutineScope.launch(Dispatchers.IO) {
+                            val res = GameEngine.processLocation(
+                                context, location.latitude, location.longitude, location.time
+                            )
+                            if (res.newExplored.isNotEmpty() || res.looted.isNotEmpty()) {
+                                withContext(Dispatchers.Main) {
+                                    if (res.newExplored.isNotEmpty()) {
+                                        exploredCenters = exploredCenters + res.newExplored.map {
+                                            ExploredPoint(GeoPoint(it.lat, it.lon), radiusMeters = it.radius)
+                                        }
+                                    }
+                                    if (res.looted.isNotEmpty()) dungeonJustEntered = true
+                                }
                             }
                         }
-                        lastForegroundLocation = newGeoPoint
                         userLocation = newGeoPoint
 
                         // POIs nachladen – MIT Offset, damit Dev-Modus korrekt funktioniert
@@ -308,91 +311,6 @@ fun MapScreen(targetLocation: GeoPoint? = null) {
 
             onDispose {
                 fusedLocationClient.removeLocationUpdates(callback)
-            }
-        }
-
-        // 4. Wenn der Spieler sich bewegt: neues Loch in den Nebel schneiden & in DB speichern
-        LaunchedEffect(userLocation) {
-            userLocation?.let { loc ->
-                coroutineScope.launch(Dispatchers.IO) {
-                    val alreadyExplored = gameDb.exploredAreaDao().isNearbyExplored(loc.latitude, loc.longitude)
-                    if (alreadyExplored == 0) {
-                        val newCenter = GeoPoint(loc.latitude, loc.longitude)
-                        val lastPoint = exploredCenters.lastOrNull()
-                        val isConnectionMode = MapSettingsManager.current.connectionModeEnabled
-                        val currentRadius = MapSettingsManager.current.visionRadiusMeters
-                        
-                        gameDb.exploredAreaDao().insert(ExploredArea(lat = loc.latitude, lon = loc.longitude, radius = currentRadius))
-                        PlayerProfile.incrementExplored(context)
-                        
-                        val addedPoints = mutableListOf<ExploredPoint>()
-                        if (isConnectionMode && lastPoint != null) {
-                            val lastCenter = lastPoint.geoPoint
-                            val step = currentRadius
-                            val results = FloatArray(1)
-                            Location.distanceBetween(lastCenter.latitude, lastCenter.longitude, newCenter.latitude, newCenter.longitude, results)
-                            val dist = results[0].toDouble()
-                            if (dist > step) {
-                                val stepsCount = (dist / step).toInt()
-                                for (i in 1 until stepsCount) {
-                                    val frac = i.toDouble() / stepsCount
-                                    val iLat = lastCenter.latitude + frac * (newCenter.latitude - lastCenter.latitude)
-                                    val iLon = lastCenter.longitude + frac * (newCenter.longitude - lastCenter.longitude)
-                                    gameDb.exploredAreaDao().insert(ExploredArea(lat = iLat, lon = iLon, radius = currentRadius))
-                                    addedPoints.add(ExploredPoint(GeoPoint(iLat, iLon), radiusMeters = currentRadius))
-                                }
-                            }
-                        }
-
-                        val newExploredPoint = ExploredPoint(newCenter, radiusMeters = currentRadius)
-                        withContext(Dispatchers.Main) {
-                            val updateList = ArrayList<ExploredPoint>(exploredCenters.size + addedPoints.size + 1)
-                            updateList.addAll(exploredCenters)
-                            updateList.addAll(addedPoints)
-                            updateList.add(newExploredPoint)
-                            exploredCenters = updateList
-                        }
-                    }
-                }
-            }
-        }
-
-        // 5. Naechsten Dungeon pruefen und AUTOMATISCH loot (Passiv)
-        LaunchedEffect(userLocation, places) {
-            userLocation?.let { loc ->
-                val prefs = context.getSharedPreferences("player_profile", Context.MODE_PRIVATE)
-                val isMagnetMode = prefs.getBoolean("dev_magnet_mode", false)
-                val detectionRadius = if (isMagnetMode) 500f else 20f
-
-                val target = places.firstOrNull { place ->
-                    val results = FloatArray(1)
-                    android.location.Location.distanceBetween(
-                        loc.latitude, loc.longitude,
-                        place.lat, place.lon,
-                        results
-                    )
-                    results[0] <= detectionRadius
-                }
-
-                target?.let { dungeon ->
-                    coroutineScope.launch(Dispatchers.IO) {
-                        val alreadyDone = gameDb.visitedDungeonDao().alreadyVisited(dungeon.osm_id)
-                        if (alreadyDone == 0) {
-                            val xpReward = when(dungeon.rarity) {
-                                "epic" -> 200; "rare" -> 100; "uncommon" -> 50; else -> 25
-                            }
-                            gameDb.visitedDungeonDao().insert(VisitedDungeon(osm_id = dungeon.osm_id, xpEarned = xpReward))
-                            PlayerProfile.incrementDungeons(context)
-                            PlayerProfile.addXP(context, xpReward)
-                            
-                            withContext(Dispatchers.Main) {
-                                dungeonJustEntered = true
-                                // Notification
-                                DungeonNotifier.notifyDungeonNearby(context, dungeon)
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -566,7 +484,7 @@ fun OSMMapView(
     val context = LocalContext.current
     val colors = LocalAppColors.current
 
-    Configuration.getInstance().load(context, context.getSharedPreferences("osm", Context.MODE_PRIVATE))
+    // osmdroid-Config + User-Agent werden einmalig in SADApp() gesetzt (OSM Tile Usage Policy)
     
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
